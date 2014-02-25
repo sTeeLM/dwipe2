@@ -596,3 +596,13 @@ void aprint(int y, int x, ulong page)
 	}
 }
 
+
+void memset(void *dst, int c, int len)
+{
+    char *d = (char*)dst;
+    int i;
+	for (i = 0 ; i < len; i++) {
+		*d++ = c;
+	} 
+}
+

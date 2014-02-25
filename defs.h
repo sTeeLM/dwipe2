@@ -39,6 +39,9 @@
 
 #define __PAGE_OFFSET  (0xC0000000)
 
+#define BIOS_MAX_SECTOR_CNT  127
+#define MAX_SECTOR_BUFFER_SIZE (BIOS_MAX_SECTOR_CNT * 512)
+
 #define UTS_RELEASE  "1.0.0"
 #define LINUX_COMPILE_BY "steel.mental"
 #define LINUX_COMPILE_HOST "gmail.com"

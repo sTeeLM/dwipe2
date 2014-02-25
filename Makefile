@@ -13,7 +13,7 @@ CC=gcc
 
 CFLAGS= -Wall -march=i486 -m32 -O2 -fomit-frame-pointer -fno-builtin -ffreestanding -fPIC -fno-stack-protector
 
-OBJS= head.o main.o cpuid.o init.o reloc.o lib.o serial.o pci.o
+OBJS= head.o main.o cpuid.o init.o reloc.o lib.o serial.o pci.o disk.o
 
 all: memtest.bin memtest
 

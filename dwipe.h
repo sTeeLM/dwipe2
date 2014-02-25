@@ -136,6 +136,8 @@ void itoa(char s[], int n);
 void reverse(char s[]);
 void set_cache(int val);
 void *memmove(void *dest, const void *src, ulong n);
+void memcpy (void *dst, void *src, int len);
+void memset(void *dst, int c, int len);
 void aprint(int y, int x, ulong page);
 
 #define PRINTMODE_SUMMARY   1
@@ -313,7 +315,6 @@ extern struct vars * const v;
 extern unsigned char _start[], _end[], startup_32[];
 extern unsigned char _size, _pages;
 extern struct cpu_ident cpu_id;
-extern struct mem_info_t mem_info;
 
 /* CPU mode types */
 #define CPM_SINGLE 1
