@@ -732,10 +732,9 @@ gdt_end:
 # 2.13 INT 13h AH=0Ah: Read Long Sectors From Drive
 # 2.14 INT 13h AH=41h: Check Extensions Present
 int13_1:
-	pushl	%ebx
-	pushl	%esi
 	pushl	%edi
-	pushl	%ebp
+	pushl	%ebx
+	subl	$0x8, %esp
 	call	1f
 1:	popl	%ebx
 	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
@@ -743,17 +742,12 @@ int13_1:
 	movw	$0, 8(%edi)   # zero es
 	movw	$0, 10(%edi)  # zero si
 	movw	$0, 12(%edi)  # zero di
-	leal	query_pcbios@GOTOFF(%ebx), %eax
-	call	*%eax
-	popl	%ebp
-	popl	%edi
-	popl	%esi
-	popl	%ebx
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
+	call	query_pcbios
 	leal	real_ret@GOTOFF(%ebx), %edi
 	movl	(%edi), %eax
+	addl	$0x8, %esp
+	pop	%ebx
+	pop	%edi
 	ret
 
 # caller fill ax, bx, cx, dx of real_reg, we set es:bx->real_buffer, zero di, ret is in real_ret
@@ -766,10 +760,10 @@ int13_1:
 # 2.8 INT 13h AH=05h: Format Track
 #	ES:BX	Buffer Address Pointer$
 int13_2:
-	pushl	%ebx
 	pushl	%esi
-	pushl	%edi
-	pushl	%ebp
+	pushl	%edi	
+	pushl	%ebx
+	subl	$0x8, %esp
 	call	1f
 1:	popl	%ebx
 	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
@@ -783,17 +777,13 @@ int13_2:
 	movw	$0, 10(%edi)   # zero si
 	movw	$0, 12(%edi)  # zero di
 	movw	%ax, 2(%edi)   # set bx as offset
-	leal	query_pcbios@GOTOFF(%ebx), %eax
-	call	*%eax
-	popl	%ebp
-	popl	%edi
-	popl	%esi
-	popl	%ebx
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
+	call	query_pcbios
 	leal	real_ret@GOTOFF(%ebx), %edi
 	movl	(%edi), %eax
+	addl	$0x8, %esp
+	popl	%ebx
+	popl	%edi
+	popl	%esi
 	ret
 
 # caller fill ax, bx, cx, dx, we set ds:si->real_dap, zero di, buffer of real_dap->real_buffer, ret is in real_ret
@@ -802,10 +792,12 @@ int13_2:
 # 2.16 INT 13h AH=43h: Extended Write Sectors to Drive
 #	DS:SI	segment:offset pointer to the DAP
 int13_3:
-	pushl	%ebx
+#jmp	int13_3
 	pushl	%esi
 	pushl	%edi
-	pushl	%ebp
+	pushl	%ecx
+	pushl	%ebx
+	subl	$0x8, %esp
 	call	1f
 1:	popl	%ebx
 	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
@@ -815,60 +807,52 @@ int13_3:
 	movl	%esi, %eax
 	andl	$0x0000ffff, %eax
 	andl	$0x000f0000, %esi
-	shrl	$16, %esi
-	movw    $0x10, (%ecx)  # size = 0x10
-	movw    $0, 1(%ecx)    # unused = 0
+	shrl	$4, %esi
+	movb    $0x10, (%ecx)  # size = 0x10
+	movb    $0, 1(%ecx)    # unused = 0
 	movw	%ax, 4(%ecx)   # set offset in dap
 	movw	%si, 6(%ecx)   # set base in dap
-	movl	$0, 8(%ecx)    # set begin_lo = 0
-	movl	$0, 12(%ecx)    # set begin_hi = 0
 	movl	%ecx, %eax
 	andl	$0x0000ffff, %eax
 	movw	%ax, 10(%edi)   # set si
 	movw	$0, 12(%edi)    # zero di
-	leal	query_pcbios@GOTOFF(%ebx), %eax
-	call	*%eax
-	popl	%ebp
-	popl	%edi
-	popl	%esi
-	popl	%ebx
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
+	call	query_pcbios
 	leal	real_ret@GOTOFF(%ebx), %edi
 	movl	(%edi), %eax
+	addl	$0x8, %esp
+	popl	%ebx
+	popl	%ecx
+	popl	%edi
+	popl	%esi
 	ret
 
 # caller fill ax, bx, cx, dx, we set ds:si->real_disk_param_ext, zero di, ret is in real_ret
 # 2.17 INT 13h AH=48h: Extended Read Drive Parameters
 #	DS:SI	segment:offset pointer to Result Buffer, see below
 int13_4:
-	pushl	%ebx
 	pushl	%esi
-	pushl	%edi
-	pushl	%ebp
+	pushl	%edi	
+	pushl	%ebx
+	subl	$0x8, %esp
 	call	1f
 1:	popl	%ebx
 	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
 	leal	real_reg@GOTOFF(%ebx), %edi
 	leal	real_disk_param_ext@GOTOFF(%ebx), %esi
+	movw	$0x1e, real_disk_param_ext  # size = x1e
 	movl	%esi, %eax
 	andl	$0x0000ffff, %eax
 	andl	$0x000f0000, %esi
 	shrl	$16, %esi
 	movw	%ax, 10(%edi)   # set si
 	movw	$0, 12(%edi)    # zero di
-	leal	query_pcbios@GOTOFF(%ebx), %eax
-	call	*%eax
-	popl	%ebp
-	popl	%edi
-	popl	%esi
-	popl	%ebx
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
+	call	query_pcbios
 	leal	real_ret@GOTOFF(%ebx), %edi
 	movl	(%edi), %eax
+	addl	$0x8, %esp
+	popl	%ebx
+	popl	%edi
+	popl	%esi
 	ret
 
 query_pcbios:
@@ -978,9 +962,8 @@ real:
 
 ###################real code##################
 # ds:di point to real_reg
-# 2.9 INT 13h AH=06h: Format Track Set Bad Sector Flags
-#	ES:DI[4]	set to 0000h:0000h to work around some buggy BIOS
-
+#fuck:
+#jmp	fuck
 	# load ax, bx, cx, dx
 	movw %ds:0(%di), %ax
 	movw %ds:2(%di), %bx
@@ -1083,6 +1066,8 @@ real_reg:
 	.word 0  # di
 real_ret:
 	.long 0
+
+.balign 16
 real_dap:
 	.byte 0		# size of DAP = 16 = 10h
 	.byte 0		# unused, should be zero
@@ -1092,6 +1077,7 @@ real_dap:
 	.long 0		# absolute number of the start of the sectors to be read (1st sector of drive has number 0)
 	.long 0
 
+.balign 16
 real_disk_param_ext:
 	.word 0			# size of Result Buffer = 30 = 1Eh
 	.word 0			# information flags
@@ -1103,9 +1089,10 @@ real_disk_param_ext:
 	.word 0			# bytes per sector
 	.long 0			# optional pointer to Enhanced Disk Drive (EDD) configuration parameters
 	                        # which may be used for subsequent interrupt 13h Extension calls (if supported)
+.balign 16
 real_buffer:
-real_param_ext:
-	. = . + MAX_SECTOR_BUFFER_SIZE
+	.space MAX_SECTOR_BUFFER_SIZE , 0
+
 
 .previous
 .bss

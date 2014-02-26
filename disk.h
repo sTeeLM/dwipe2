@@ -5,7 +5,7 @@
 #include "stdint.h"
 #include "defs.h"
 
-extern char * real_buffer;
+extern char real_buffer[MAX_SECTOR_BUFFER_SIZE];
 extern int int13_1(void);
 extern int int13_2(void);
 extern int int13_3(void);
@@ -48,9 +48,10 @@ struct disk_param_ext
     uint32_t  sectors_per_track;// physical number of sectors per track = last index (because index starts with 1)
     uint64_t  nsectors;       //absolute number of sectors = last index + 1 (because index starts with 0)
     uint16_t  bytes_per_sector; //bytes per sector
+    uint32_t  edd;              //optional pointer to Enhanced Disk Drive (EDD) configuration parameters
 }__attribute__((packed));
 
-extern struct disk_param_ext real_param_ext;
+extern struct disk_param_ext real_disk_param_ext;
 
 #define CHS_HEAD_MAX 255
 #define CHS_CYLINDER_MAX 1023
@@ -71,8 +72,8 @@ int get_disk_param_ext(struct disk_param * param);
 int reset_disk_drive(uint8_t disk_id);
 int get_last_status(uint8_t disk_id, int * status);
 int read_sectors_chs(struct disk_param * param, int cylinder, int head, int sector, uint32_t nsector, void * buffer, uint32_t * size);
+int write_sectors_chs(struct disk_param * param, int cylinder, int head, int sector, uint32_t nsector, void * buffer, uint32_t * size, int check);
 int read_sectors_lba(struct disk_param * param, uint64_t offset, uint32_t nsector, void * buffer, uint32_t * size);
-int write_sectors_chs(struct disk_param * param, int cylinder, int head, int sector, uint32_t nsector, void * buffer, uint32_t * size);
 int write_sectors_lba(struct disk_param * param, uint64_t offset, uint32_t nsector, void * buffer, uint32_t * size, int check);
 int check_extensions_present(uint8_t disk_id, int * ext, int * version);
 #endif
