@@ -3,14 +3,14 @@ OUTPUT_ARCH(i386);
 
 ENTRY(startup_32); 
 SECTIONS {
-	. = 0;
+	. = 0x100000;
 	.text : {
 		_start = .;
 		*(.text)
 		*(.text.*)
 		*(.plt)
 		_etext = . ;
-	} = 0x9090
+	}
 	.rodata : {
 		*(.rodata)
 		*(.rodata.*)

@@ -14,37 +14,12 @@
 .text
 #define __ASSEMBLY__
 #include "defs.h"
-#include "dwipe.h"
 
 #define APM_OFF
 
 /*        MEMORY LAYOUT
 
-	    NOT __BIG_KERNEL__
- 	|			 |
-0A0000	+------------------------+
-	|  Reserved for BIOS	 |	Do not use.  Reserved for BIOS EBDA.
-09A000	+------------------------+
-	|  Command line		 |
-	|  Stack/heap		 |	For use by the kernel real-mode code.
-098000	+------------------------+	
-	|  Kernel setup		 |	The kernel real-mode code.
-090200	+------------------------+
-	|  Kernel boot sector	 |	The kernel legacy boot sector.
-090000	+------------------------+
-	|  Protected-mode kernel |	The bulk of the kernel image.
-010000	+------------------------+
-	|  Boot loader		 |	<- Boot sector entry point 0000:7C00
-001000	+------------------------+
-	|  Reserved for MBR/BIOS |
-000800	+------------------------+
-	|  Typically used by MBR |
-000600	+------------------------+ 
-	|  BIOS use only	 |
-000000	+------------------------+
-
-
-	      __BIG_KERNEL__
+	   boot strap
         |  Protected-mode kernel |
 100000  +------------------------+
 	|  I/O memory hole	 |
@@ -67,6 +42,28 @@ X       +------------------------+
 	|  BIOS use only	 |
 000000	+------------------------+
 
+	   relocate real code
+        |  Protected-mode kernel |
+100000  +------------------------+
+	|  I/O memory hole	 |
+0A0000	+------------------------+
+	|  Reserved for BIOS	 |	Leave as much as possible unused
+	~                        ~
+	|  Command line		 |	(Can also be below the X+10000 mark)
+020000	+------------------------+
+	|  real stack		 |	For use by the real-mode code.
+Y	+------------------------+	
+	|  real data		 |	
+	|  real code     	 |	relocated real code
+010000  +------------------------+
+	|  Boot loader		 |	<- Boot sector entry point 0000:7C00
+001000	+------------------------+
+	|  Reserved for MBR/BIOS |
+000800	+------------------------+
+	|  Typically used by MBR |
+000600	+------------------------+ 
+	|  BIOS use only	 |
+000000	+------------------------+
 */
 
 /*
@@ -103,33 +100,21 @@ X       +------------------------+
 	.code32
 	.globl startup_32
 startup_32:
-	cld  # @ paddr 0x10000
+	cld  # paddr 0x100000
 	cli
 
-	/* Ensure I have a stack pointer */
-	testl	%esp, %esp
-	jnz 0f
-	movl	$(LOW_TEST_ADR + _GLOBAL_OFFSET_TABLE_), %esp
-	leal	stack_top@GOTOFF(%esp), %esp
-0:
-
-	/* Load the GOT pointer */
-	call	0f
-0:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-0b], %ebx
-
 	/* Pick the appropriate stack address */
-	leal	stack_top@GOTOFF(%ebx), %esp
+	leal	stack_top, %esp
 
 	/* Reload all of the segment registers */
-	leal	gdt@GOTOFF(%ebx), %eax
-	movl	%eax, 2 + gdt_descr@GOTOFF(%ebx)
-	lgdt	gdt_descr@GOTOFF(%ebx)
-	leal	flush@GOTOFF(%ebx), %eax
+	leal	gdt, %eax
+	movl	%eax, 2 + gdt_descr
+	lgdt	gdt_descr
+	leal	flush, %eax
 	pushl	$KERNEL_CS
 	pushl	%eax
 	lret
-flush:	movl	$KERNEL_DS, %eax  # @ paddr 0x10041
+flush:	movl	$KERNEL_DS, %eax
 	movw	%ax, %ds
 	movw	%ax, %es
 	movw	%ax, %fs
@@ -139,23 +124,53 @@ flush:	movl	$KERNEL_DS, %eax  # @ paddr 0x10041
 /*
  *  Zero BSS
  */
-	cmpl	$1, zerobss@GOTOFF(%ebx)  # @ paddr 0x10050
+	cmpl	$1, zerobss
 	jnz	zerobss_done
 	xorl	%eax, %eax
-	leal	_bss@GOTOFF(%ebx), %edi
-	leal	_end@GOTOFF(%ebx), %ecx
+	leal	_bss, %edi
+	leal	_end, %ecx
 	subl	%edi, %ecx
 1:	movl	%eax, (%edi)
 	addl	$4, %edi
 	subl	$4, %ecx
 	jnz	1b
-	movl	$0, zerobss@GOTOFF(%ebx)
+	movl	$0, zerobss
 zerobss_done:
 
 /*
+ * fix up gdt for prot->real trans, relocate real code
+ */
+	/* Compute the reloc address */
+	leal	startup_32, %esi
+
+	/* Compute the gdt fixup */
+	movl	%esi, %eax
+	shll	$16, %eax
+
+	movl	%esi, %ecx
+	shrl	$16, %ecx
+	andl	$0xff, %ecx
+
+	movl	%esi, %edx
+	andl	$0xff000000, %edx
+	orl	%edx, %ecx
+
+	/* Fixup the gdt */
+	andl	$0x0000ffff, REAL_CS + 0 + gdt
+	orl	%eax,        REAL_CS + 0 + gdt
+	andl	$0x00ffff00, REAL_CS + 4 + gdt
+	orl	%ecx,        REAL_CS + 4 + gdt
+	andl	$0x0000ffff, REAL_DS + 0 + gdt
+	orl	%eax,        REAL_DS + 0 + gdt
+	andl	$0x00ffff00, REAL_DS + 4 + gdt
+	orl	%ecx,        REAL_DS + 4 + gdt
+
+	/* relocate real code */
+	call	relocate_real
+/*
  * Clear the video display
  */
-	cmpl	$1, clear_display@GOTOFF(%ebx) # @ paddr 0x1007d
+	cmpl	$1, clear_display
 	jnz	clear_display_done
 	movw	$0x0720, %ax
 	movl	$0xb8000, %edi
@@ -164,16 +179,16 @@ zerobss_done:
 	addl	$2, %edi
 	cmpl	%ecx, %edi
 	jnz	1b
-	movl	$0, clear_display@GOTOFF(%ebx)
+	movl	$0, clear_display
 clear_display_done:
 
 
 /*
  * Setup and exception handler
  */
-	leal	idt@GOTOFF(%ebx), %edi  # @ paddr 0x100a8
+	leal	idt, %edi
 
-	leal	vec0@GOTOFF(%ebx), %edx
+	leal	vec0, %edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx, %ax	/* selector = 0x0010 = cs */
 	movw	$0x8E00, %dx	/* interrupt gate - dpl=0, present */
@@ -181,7 +196,7 @@ clear_display_done:
 	movl	%edx, 4(%edi)
 	addl	$8, %edi
 
-	leal	vec1@GOTOFF(%ebx),%edx
+	leal	vec1,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -189,7 +204,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec2@GOTOFF(%ebx),%edx
+	leal	vec2,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -197,7 +212,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec3@GOTOFF(%ebx),%edx
+	leal	vec3,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -205,7 +220,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec4@GOTOFF(%ebx),%edx
+	leal	vec4,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -213,7 +228,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec5@GOTOFF(%ebx),%edx
+	leal	vec5,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -221,7 +236,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec6@GOTOFF(%ebx),%edx
+	leal	vec6,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -229,7 +244,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec7@GOTOFF(%ebx),%edx
+	leal	vec7,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -237,7 +252,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec8@GOTOFF(%ebx),%edx
+	leal	vec8,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -245,7 +260,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec9@GOTOFF(%ebx),%edx
+	leal	vec9,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -253,7 +268,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec10@GOTOFF(%ebx),%edx
+	leal	vec10,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -261,7 +276,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec11@GOTOFF(%ebx),%edx
+	leal	vec11,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -269,7 +284,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec12@GOTOFF(%ebx),%edx
+	leal	vec12,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -277,7 +292,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec13@GOTOFF(%ebx),%edx
+	leal	vec13,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -285,7 +300,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec14@GOTOFF(%ebx),%edx
+	leal	vec14,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -293,7 +308,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec15@GOTOFF(%ebx),%edx
+	leal	vec15,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -301,7 +316,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec16@GOTOFF(%ebx),%edx
+	leal	vec16,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -309,7 +324,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec17@GOTOFF(%ebx),%edx
+	leal	vec17,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -317,7 +332,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec18@GOTOFF(%ebx),%edx
+	leal	vec18,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -325,7 +340,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	leal	vec19@GOTOFF(%ebx),%edx
+	leal	vec19,%edx
 	movl	$(KERNEL_CS << 16),%eax
 	movw	%dx,%ax		   /* selector = 0x0010 = cs */
 	movw	$0x8E00,%dx	   /* interrupt gate - dpl=0, present */
@@ -334,13 +349,13 @@ clear_display_done:
 	addl	$8,%edi
 
 	/* Now that it is initialized load the interrupt descriptor table */
-	leal	idt@GOTOFF(%ebx), %eax
-	movl	%eax, 2 + idt_descr@GOTOFF(%ebx)
-	lidt	idt_descr@GOTOFF(%ebx)
+	leal	idt, %eax
+	movl	%eax, 2 + idt_descr
+	lidt	idt_descr
 
 /* Find out the CPU type */
 
-	leal	cpu_id@GOTOFF(%ebx), %esi
+	leal	cpu_id, %esi
 	movl	%ebx, %edi
 
 	movl	$-1, X86_CPUID(%esi)	#  -1 for no CPUID initially
@@ -543,10 +558,7 @@ not_cyrix:
 
 not_centaur:
 id_done:
-	movl	%edi, %ebx	/* Restore GOT pointer */
 
-	leal	_dl_start@GOTOFF(%ebx), %eax
-	call	*%eax
 	call	do_test
 	/* In case we return simulate an exception */
 	pushfl
@@ -694,11 +706,12 @@ idt:
 	.fill 20,8,0	       # idt is uninitialized
 
 gdt_descr:
-	.word gdt_end - gdt - 1
+	.word 6*8 - 1
 	.long 0
 
+
 .align 4
-.globl gdt, gdt_end
+.globl gdt, gdt_end, real_code_begin, real_code_end, query_pcbios
 gdt:
 	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x0000000000000000	/* not used */
@@ -717,193 +730,17 @@ gdt:
 	.byte	0x00, 0x00			# granularity = bytes
 
 gdt_end:
-
-
-#define RSTART startup_32
-
-.globl query_pcbios
-.globl int13_1, int13_2, int13_3, int13_4
-# caller fill ax, bx, cx, dx of real_reg, zero es,si,di of real_reg, ret is in real_ret
-# 2.3 INT 13h AH=00h: Reset Disk Drive
-# 2.4 INT 13h AH=01h: Get Status of Last Drive Operation
-# 2.10 INT 13h AH=07h: Format Drive Starting at Track
-# 2.11 INT 13h AH=08h: Read Drive Parameters
-# 2.12 INT 13h AH=09h: Init Drive Pair Characteristics
-# 2.13 INT 13h AH=0Ah: Read Long Sectors From Drive
-# 2.14 INT 13h AH=41h: Check Extensions Present
-int13_1:
-	pushl	%edi
-	pushl	%ebx
-	subl	$0x8, %esp
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
-	leal	real_reg@GOTOFF(%ebx), %edi
-	movw	$0, 8(%edi)   # zero es
-	movw	$0, 10(%edi)  # zero si
-	movw	$0, 12(%edi)  # zero di
-	call	query_pcbios
-	leal	real_ret@GOTOFF(%ebx), %edi
-	movl	(%edi), %eax
-	addl	$0x8, %esp
-	pop	%ebx
-	pop	%edi
-	ret
-
-# caller fill ax, bx, cx, dx of real_reg, we set es:bx->real_buffer, zero di, ret is in real_ret
-# 2.5 INT 13h AH=02h: Read Sectors From Drive 
-#	ES:BX	Buffer Address Pointer
-# 2.6 INT 13h AH=03h: Write Sectors To Drive
-#	ES:BX	Buffer Address Pointer
-# 2.7 INT 13h AH=04h: Verify Sectors From Drive
-#	ES:BX	Buffer Address Pointer
-# 2.8 INT 13h AH=05h: Format Track
-#	ES:BX	Buffer Address Pointer$
-int13_2:
-	pushl	%esi
-	pushl	%edi	
-	pushl	%ebx
-	subl	$0x8, %esp
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
-	leal	real_reg@GOTOFF(%ebx), %edi
-	leal	real_buffer@GOTOFF(%ebx), %esi
-	movl	%esi, %eax
-	andl	$0x0000ffff, %eax
-	andl	$0x000f0000, %esi
-	shrl	$4, %esi
-	movw	%si, 8(%edi)   # set es as base
-	movw	$0, 10(%edi)   # zero si
-	movw	$0, 12(%edi)  # zero di
-	movw	%ax, 2(%edi)   # set bx as offset
-	call	query_pcbios
-	leal	real_ret@GOTOFF(%ebx), %edi
-	movl	(%edi), %eax
-	addl	$0x8, %esp
-	popl	%ebx
-	popl	%edi
-	popl	%esi
-	ret
-
-# caller fill ax, bx, cx, dx, we set ds:si->real_dap, zero di, buffer of real_dap->real_buffer, ret is in real_ret
-# 2.15 INT 13h AH=42h: Extended Read Sectors From Drive
-#	DS:SI	segment:offset pointer to the DAP
-# 2.16 INT 13h AH=43h: Extended Write Sectors to Drive
-#	DS:SI	segment:offset pointer to the DAP
-int13_3:
-#jmp	int13_3
-	pushl	%esi
-	pushl	%edi
-	pushl	%ecx
-	pushl	%ebx
-	subl	$0x8, %esp
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
-	leal	real_reg@GOTOFF(%ebx), %edi
-	leal	real_buffer@GOTOFF(%ebx), %esi
-	leal	real_dap@GOTOFF(%ebx), %ecx
-	movl	%esi, %eax
-	andl	$0x0000ffff, %eax
-	andl	$0x000f0000, %esi
-	shrl	$4, %esi
-	movb    $0x10, (%ecx)  # size = 0x10
-	movb    $0, 1(%ecx)    # unused = 0
-	movw	%ax, 4(%ecx)   # set offset in dap
-	movw	%si, 6(%ecx)   # set base in dap
-	movl	%ecx, %eax
-	andl	$0x0000ffff, %eax
-	movw	%ax, 10(%edi)   # set si
-	movw	$0, 12(%edi)    # zero di
-	call	query_pcbios
-	leal	real_ret@GOTOFF(%ebx), %edi
-	movl	(%edi), %eax
-	addl	$0x8, %esp
-	popl	%ebx
-	popl	%ecx
-	popl	%edi
-	popl	%esi
-	ret
-
-# caller fill ax, bx, cx, dx, we set ds:si->real_disk_param_ext, zero di, ret is in real_ret
-# 2.17 INT 13h AH=48h: Extended Read Drive Parameters
-#	DS:SI	segment:offset pointer to Result Buffer, see below
-int13_4:
-	pushl	%esi
-	pushl	%edi	
-	pushl	%ebx
-	subl	$0x8, %esp
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
-	leal	real_reg@GOTOFF(%ebx), %edi
-	leal	real_disk_param_ext@GOTOFF(%ebx), %esi
-	movw	$0x1e, real_disk_param_ext  # size = x1e
-	movl	%esi, %eax
-	andl	$0x0000ffff, %eax
-	andl	$0x000f0000, %esi
-	shrl	$16, %esi
-	movw	%ax, 10(%edi)   # set si
-	movw	$0, 12(%edi)    # zero di
-	call	query_pcbios
-	leal	real_ret@GOTOFF(%ebx), %edi
-	movl	(%edi), %eax
-	addl	$0x8, %esp
-	popl	%ebx
-	popl	%edi
-	popl	%esi
-	ret
-
+	.word	0
 query_pcbios:
+1:
+jmp 1b
 	/* Save the caller save registers */
 	pushl	%ebx
 	pushl	%esi
 	pushl	%edi
 	pushl	%ebp
-	call	1f
-1:	popl	%ebx
-	addl	$_GLOBAL_OFFSET_TABLE_+[.-1b], %ebx
 
-	/* Compute the reloc address */
-	leal	RSTART@GOTOFF(%ebx), %esi
-
-	/* Fixup real code pointer */
-	movl	%esi, %eax             # esi = eax = 0x10000
-	shrl	$4, %eax
-	movw	%ax, 2 + realptr@GOTOFF(%ebx) # ax = 0x1000
-
-	/* Fixup protected code pointer */
-	leal	prot@GOTOFF(%ebx), %eax
-	movl	%eax, protptr@GOTOFF(%ebx)
-
-	/* Compute the gdt fixup */
-	movl	%esi, %eax
-	shll	$16, %eax	# Base low, eax = 0x0
-
-	movl	%esi, %ecx
-	shrl	$16, %ecx
-	andl	$0xff, %ecx     # ecx = 0x1
-
-	movl	%esi, %edx
-	andl	$0xff000000, %edx # edx=0
-	orl	%edx, %ecx        # ecx=1
-
-	/* Fixup the gdt */
-	andl	$0x0000ffff, REAL_CS + 0 + gdt@GOTOFF(%ebx)
-	orl	%eax,        REAL_CS + 0 + gdt@GOTOFF(%ebx)
-	andl	$0x00ffff00, REAL_CS + 4 + gdt@GOTOFF(%ebx)
-	orl	%ecx,        REAL_CS + 4 + gdt@GOTOFF(%ebx)
-	andl	$0x0000ffff, REAL_DS + 0 + gdt@GOTOFF(%ebx)
-	orl	%eax,        REAL_DS + 0 + gdt@GOTOFF(%ebx)
-	andl	$0x00ffff00, REAL_DS + 4 + gdt@GOTOFF(%ebx)
-	orl	%ecx,        REAL_DS + 4 + gdt@GOTOFF(%ebx)
-
-	/* Fixup the gdt_descr */
-	leal	gdt@GOTOFF(%ebx), %eax
-	movl	%eax, 2 + gdt_descr@GOTOFF(%ebx)
-
-	lidt	idt_real@GOTOFF(%ebx)
+	lidt	idt_real
 
 	/* Don't disable the a20 line */
 
@@ -915,13 +752,14 @@ query_pcbios:
 	movl	%eax, %fs
 	movl	%eax, %gs
 
-	/* Compute the stack base */
-	leal	stack@GOTOFF(%ebx), %ecx
-	/* Compute the address of real_reg */
-	leal	real_reg@GOTOFF(%ebx), %edi
+	/* Save %esp */
+	movl	%esp, %ebx
+
+	/* Load offset of real_reg */
+	movl	real_data - real_code_begin, %edi
 
 	/* switch to 16bit mode */
-	ljmp	$REAL_CS, $1f - RSTART
+	ljmp	$REAL_CS, $1f - startup_32
 1:
 	.code16
 	/* Disable Paging and protected mode */
@@ -933,8 +771,10 @@ query_pcbios:
 	/* make intersegment jmp to flush the processor pipeline
 	 * and reload %cs:%eip (to clear upper 16 bits of %eip).
 	 */
-	ljmp	*(realptr - RSTART)
-real:
+	ljmp	$REAL_CODE_SEG, $REAL_CODE_OFFSET
+
+/* will be relocate to [1000]:[0000] */
+real_code_begin:
 	/* we are in real mode now
 	 * set up the real mode segment registers : %ds, %ss, %es, %gs, %fs
 	 */
@@ -946,116 +786,65 @@ real:
 	movw	%ax, %ss
 
 	/* Adjust the stack pointer */
-	movl	%ecx, %eax
-	shrl	$4, %eax
-	movw	%ax, %ss
-	subl	%ecx, %esp
+	xorl	%esp,%esp
 
-	/* Save my base pointer */
+
+	/* Save my old stack pointer on real mode stack */
 	pushl	%ebx
-
-	/* Setup %ds to point to my data area */
-	andl	$0x0000ffff,%edi
 
 	/* Enable interrupts or BIOS's go crazy */
 	sti
 
 ###################real code##################
 # ds:di point to real_reg
-#fuck:
-#jmp	fuck
-	# load ax, bx, cx, dx
-	movw %ds:0(%di), %ax
-	movw %ds:2(%di), %bx
-	movw %ds:4(%di), %cx
-	movw %ds:6(%di), %dx
-	movw %ds:8(%di), %es
-	movw %ds:10(%di), %si
-	pushw %di
-	movw %ds:12(%di), %di
-	int $0x13
-
-	# save ax, bx, cx, dx, es, si, di is drop!
-	# CF->ret
-	jc 1f
-
-	popw %di
-	movl $0,%ds:14(%di)
-	jmp 2f
-1:
-	popw %di
-	movl $1,%ds:14(%di)
-2:
-	movw %ax, %ds:0(%di)
-	movw %bx, %ds:2(%di)
-	movw %cx, %ds:4(%di)
-	movw %dx, %ds:6(%di) 
-	movw %es, %ds:8(%di)
-	movw %si, %ds:10(%di)
+	
 ##############################################
 
 	/* O.k. the BIOS query is done switch back to protected mode */
 	cli
 
-	/* Restore my saved variables */
+	/* Restore my old stack pointer */
 	popl	%ebx
+	movl	%ebx, %esp
 
 	/* Get an convinient %ds */
 	movw	%cs, %ax
 	movw	%ax, %ds
 
 	/* Load the global descriptor table */
-	addr32 lgdt	gdt_descr - RSTART
+	addr32 lgdt	gdt_real_descr - real_code_begin
 
 	/* Turn on protected mode */
-	/* Set the PE bit in CR0 */
-	movl	%cr0,%eax
-	orl	$(1<<0),%eax
-	movl	%eax,%cr0
+	movw	$0x0001, %ax	# protected mode (PE) bit
+	lmsw	%ax		# This is it#
+	jmp	flush_instr
+flush_instr:
+	movw	$KERNEL_DS, %ax
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	%ax, %ss
+	movw	%ax, %fs
+	movw	%ax, %gs
 
 	/* flush the prefetch queue, and relaod %cs:%eip */
-	data32 ljmp	*(protptr - RSTART)
-prot:
-	.code32
-	/* Reload other segment registers */
-	movl	$KERNEL_DS, %eax
-	movl	%eax, %ds
-	movl	%eax, %es
-	movl	%eax, %fs
-	movl	%eax, %gs
-	movl	%eax, %ss
+	data32 ljmp $KERNEL_CS, $prot
 
-	/* Adjust the stack pointer */
-	leal	stack@GOTOFF(%ebx), %eax
-	addl	%eax, %esp
+.align 4
+.globl gdt_real, gdt_real_end, idt_real, gdt_real_descr
+gdt_real_descr:
+	.word	4*8 - 1
+	.long	gdt_real - real_code_begin + REAL_CODE_ADDR
 
-	/* Restore the caller saved registers */
-	popl	%ebp
-	popl	%edi
-	popl	%esi
-	popl	%ebx
-	movl	$1, %eax
-	ret
+gdt_real:
+	.quad	0x0000000000000000	/* NULL descriptor */
+	.quad	0x0000000000000000	/* not used */
+	.quad	0x00cf9a000000ffff	/* 0x10 main 4gb code at 0x000000 */
+	.quad	0x00cf92000000ffff	/* 0x18 main 4gb data at 0x000000 */
+gdt_real_end:
 
-realptr:
-	.word	real - RSTART
-	.word	0x0000
-protptr:
-	.long	0
-	.long	KERNEL_CS
-
-idt_real:
-	.word	0x400 - 1			# idt limit ( 256 entries)
-	.word	0, 0				# idt base = 0L
-
-.data
-zerobss:	.long	1
-clear_display:	.long	1
-.previous
-
-.data
-.balign 16
+real_data:
 	.globl real_reg, real_ret, real_dap, real_disk_param_ext,real_buffer,real_param_ext
+.balign 16
 real_reg:
 	.word 0  # ax
 	.word 0  # bx
@@ -1091,13 +880,44 @@ real_disk_param_ext:
 	                        # which may be used for subsequent interrupt 13h Extension calls (if supported)
 .balign 16
 real_buffer:
-	.space MAX_SECTOR_BUFFER_SIZE , 0
+	.space	MAX_SECTOR_BUFFER_SIZE , 0
+real_code_end:
+	.word	0
+
+idt_real:
+	.word	0x400 - 1			# idt limit ( 256 entries)
+	.word	0, 0				# idt base = 0L
+
+prot:
+	.code32
+	/* Reload gdt, then reload other segment registers */
+	lgdt	gdt_descr
+	leal	1f, %eax
+	pushl	$KERNEL_CS
+	pushl	%eax
+	lret
+1:	movl	$KERNEL_DS, %eax
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	%ax, %fs
+	movw	%ax, %gs
+	movw	%ax, %ss
+
+	/* Restore the caller saved registers */
+	popl	%ebp
+	popl	%edi
+	popl	%esi
+	popl	%ebx
+	movl	$1, %eax
+	ret
 
 
-.previous
+.data
+zerobss:	.long	1
+clear_display:	.long	1
+
 .bss
 .balign 16
 stack:
-	. = . + 8192
+	. = . + PROT_STACK_SIZE
 stack_top:
-.previous

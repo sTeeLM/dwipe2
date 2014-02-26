@@ -5,11 +5,7 @@
 #include "stdint.h"
 #include "defs.h"
 
-extern char real_buffer[MAX_SECTOR_BUFFER_SIZE];
-extern int int13_1(void);
-extern int int13_2(void);
-extern int int13_3(void);
-extern int int13_4(void);
+
 struct reg_req
 {
     uint8_t al;
@@ -24,7 +20,6 @@ struct reg_req
     uint16_t si;
 }__attribute__((packed));
 
-extern struct reg_req real_reg;
 
 struct disk_dap
 {
@@ -35,8 +30,6 @@ struct disk_dap
 	uint16_t base;          // base of buffer
 	uint64_t begin;         // absolute number of the start of the sectors to be read (1st sector of drive has number 0)    
 }__attribute__((packed));
-
-extern struct disk_dap real_dap;
 
 
 struct disk_param_ext
@@ -51,7 +44,6 @@ struct disk_param_ext
     uint32_t  edd;              //optional pointer to Enhanced Disk Drive (EDD) configuration parameters
 }__attribute__((packed));
 
-extern struct disk_param_ext real_disk_param_ext;
 
 #define CHS_HEAD_MAX 255
 #define CHS_CYLINDER_MAX 1023

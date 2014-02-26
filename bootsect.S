@@ -13,7 +13,7 @@
  *
  * 1-Jan-96 Modified by Chris Brady for use as a boot loader for MemTest-86.
  */
-
+#define __ASSEMBLY__
 #include "defs.h"
 
 ROOT_DEV = 0

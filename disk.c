@@ -1,4 +1,32 @@
 #include "disk.h"
+
+extern char real_code_begin[];
+extern char real_code_end[];
+
+/* should be relocate to p_xx*/
+extern char real_buffer[MAX_SECTOR_BUFFER_SIZE];
+extern struct reg_req real_reg;
+extern struct disk_dap real_dap;
+extern struct disk_param_ext real_disk_param_ext;
+
+char * p_real_buffer;
+struct reg_req * p_real_reg;
+struct disk_dap * p_real_dap;
+struct disk_param_ext * p_real_disk_param_ext;
+
+extern int query_pcbios();
+extern int int13_1(void);
+extern int int13_2(void);
+extern int int13_3(void);
+extern int int13_4(void);
+
+void relocate_real()
+{
+    char * dst = (char *)REAL_CODE_ADDR;
+    memcpy(dst, real_code_begin, real_code_end - real_code_begin);
+}
+
+
 /*
 INT 13h AH=08h: Read Drive Parameters[edit]
 Parameters:
