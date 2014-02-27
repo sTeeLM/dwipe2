@@ -13,7 +13,7 @@ CC=gcc
 
 CFLAGS= -Wall -march=i486 -m32 -O2 -fomit-frame-pointer -fno-builtin -ffreestanding -fno-stack-protector
 
-OBJS= head.o main.o inter.o lib.o display.o disk.o
+OBJS= head.o int13.o main.o inter.o lib.o display.o disk.o test.o
 
 all: memtest.bin memtest
 
@@ -38,6 +38,9 @@ bootsect.s: bootsect.S defs.h
 	$(CC) -E -traditional $< -o $@
 
 setup.s: setup.S defs.h
+	$(CC) -E -traditional $< -o $@
+
+int13.s: int13.S defs.h
 	$(CC) -E -traditional $< -o $@
 
 memtest.bin: memtest_shared.bin bootsect.o setup.o memtest.bin.lds

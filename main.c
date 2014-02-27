@@ -3,8 +3,9 @@
 #include "display.h"
 #include "lib.h"
 #include "io.h"
+#include "disk.h"
 
-void do_test()
+void do_main()
 {
     /* Kill Floppy Motor */
 	outb(0x8, 0x3f2);  
@@ -15,6 +16,10 @@ void do_test()
 	/* Setup the display */
 	display_init();
 
-    while(1);
+    /* Relocate real code */
+	relocate_real();
+
+extern void do_test();
+    do_test();
 }
 

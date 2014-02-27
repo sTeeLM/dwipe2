@@ -164,9 +164,6 @@ zerobss_done:
 	orl	%eax,        REAL_DS + 0 + gdt
 	andl	$0x00ffff00, REAL_DS + 4 + gdt
 	orl	%ecx,        REAL_DS + 4 + gdt
-
-	/* relocate real code */
-	call	relocate_real
 /*
  * Clear the video display
  */
@@ -559,7 +556,7 @@ not_cyrix:
 not_centaur:
 id_done:
 
-	call	do_test
+	call	do_main
 	/* In case we return simulate an exception */
 	pushfl
 	pushl	%cs
@@ -732,8 +729,6 @@ gdt:
 gdt_end:
 	.word	0
 query_pcbios:
-1:
-jmp 1b
 	/* Save the caller save registers */
 	pushl	%ebx
 	pushl	%esi
@@ -754,9 +749,6 @@ jmp 1b
 
 	/* Save %esp */
 	movl	%esp, %ebx
-
-	/* Load offset of real_reg */
-	movl	real_data - real_code_begin, %edi
 
 	/* switch to 16bit mode */
 	ljmp	$REAL_CS, $1f - startup_32
@@ -788,16 +780,47 @@ real_code_begin:
 	/* Adjust the stack pointer */
 	xorl	%esp,%esp
 
+	/* Make edi point to real_reg */
+	movl	$REAL_CODE_SEG, %eax
+	shll	$4, %eax
+	xor	%eax, %edi
 
 	/* Save my old stack pointer on real mode stack */
 	pushl	%ebx
 
 	/* Enable interrupts or BIOS's go crazy */
 	sti
-
 ###################real code##################
 # ds:di point to real_reg
-	
+	# load ax, bx, cx, dx
+	movw %ds:0(%di), %ax
+	movw %ds:2(%di), %bx
+	movw %ds:4(%di), %cx
+	movw %ds:6(%di), %dx
+	movw %ds:8(%di), %es
+	movw %ds:10(%di), %si
+	pushw %di
+	movw %ds:12(%di), %di
+
+	int $0x13
+
+	# save ax, bx, cx, dx, es, si, di is drop!
+	# CF->ret
+	jc 1f
+
+	popw %di
+	movl $0,%ds:14(%di)
+	jmp 2f
+1:
+	popw %di
+	movl $1,%ds:14(%di)
+2:
+	movw %ax, %ds:0(%di)
+	movw %bx, %ds:2(%di)
+	movw %cx, %ds:4(%di)
+	movw %dx, %ds:6(%di) 
+	movw %es, %ds:8(%di)
+	movw %si, %ds:10(%di)
 ##############################################
 
 	/* O.k. the BIOS query is done switch back to protected mode */

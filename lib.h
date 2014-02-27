@@ -41,5 +41,8 @@ void reverse(char s[]);
 void *memmove(void *dest, const void *src, uint32_t n);
 void memset(void *dst, int c, int len);
 void set_cache(int val);
+void sleep(int sec);
+
+
 
 #endif

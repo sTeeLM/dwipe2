@@ -10,6 +10,7 @@
 
 #include "defs.h"
 #include "lib.h"
+#include "io.h"
 
 static inline void cache_off(void)
 {
@@ -181,4 +182,81 @@ void memset(void *dst, int c, int len)
 		*d++ = c;
 	} 
 }
+/*
+Register  Contents
+ 0x00      Seconds
+ 0x02      Minutes
+ 0x04      Hours
+ 0x06      Weekday
+ 0x07      Day of Month
+ 0x08      Month
+ 0x09      Year
+ 0x32      Century (maybe)
+ 0x0A      Status Register A
+ 0x0B      Status Register B
+*/
+struct cmos_content
+{
+    uint8_t seconds;
+    uint8_t minutes;
+    uint8_t hours;
+    uint8_t weekday;
+    uint8_t day_of_month;
+    uint8_t month;
+    uint8_t year;
+};
+void read_cmos(struct cmos_content * cmos)
+{
+    uint8_t registerB;
 
+    outb(0, 0x70);
+    cmos->seconds = inb(0x71);
+
+    outb(0x2, 0x70);
+    cmos->minutes = inb(0x71);
+
+    outb(0x4, 0x70);
+    cmos->hours = inb(0x71);
+
+    outb(0x6, 0x70);
+    cmos->weekday = inb(0x71);
+
+    outb(0x7, 0x70);
+    cmos->day_of_month = inb(0x71);
+
+    outb(0x8, 0x70);
+    cmos->month = inb(0x71);
+
+    outb(0x9, 0x70);
+    cmos->year = inb(0x71);
+
+    outb(0xB, 0x70);
+    registerB = inb(0x71);
+
+    // Convert BCD to binary values if necessary
+    if (!(registerB & 0x04)) {
+        cmos->seconds = (cmos->seconds & 0x0F) + ((cmos->seconds / 16) * 10);
+        cmos->minutes = (cmos->minutes & 0x0F) + ((cmos->minutes / 16) * 10);
+        cmos->hours = ( (cmos->hours & 0x0F) + (((cmos->hours & 0x70) / 16) * 10) ) | (cmos->hours & 0x80);
+        cmos->day_of_month = (cmos->day_of_month & 0x0F) + ((cmos->day_of_month / 16) * 10);
+        cmos->month = (cmos->month & 0x0F) + ((cmos->month / 16) * 10);
+        cmos->year = (cmos->year & 0x0F) + ((cmos->year / 16) * 10);
+    }
+}
+
+void sleep(int sec)
+{
+   
+    struct cmos_content cmos, cmos2;
+    memset(&cmos, 0, sizeof(cmos));
+    memset(&cmos, 0, sizeof(cmos2));
+    read_cmos(&cmos);
+    memcpy(&cmos2, &cmos, sizeof(cmos));
+    while(1) {
+        read_cmos(&cmos2);
+        if(cmos2.seconds - sec > cmos.seconds)
+            break;
+    }
+    return;
+    
+}
