@@ -57,7 +57,7 @@ static inline void reboot(void)
 
 struct cpu_ident cpu_id = {0};
 
-
+/*
 int memcmp(const void *s1, const void *s2, uint32_t count)
 {
 	const unsigned char *src1 = s1, *src2 = s2;
@@ -112,7 +112,7 @@ void reverse(char s[])
 		s[j] = c;
 	}
 }
-
+*/
 void set_cache(int val)
 {
 	extern struct cpu_ident cpu_id;
@@ -130,24 +130,6 @@ void set_cache(int val)
 	}
 }
 
-void *memmove(void *dest, const void *src, uint32_t n)
-{
-	long i;
-	char *d = (char *)dest, *s = (char *)src;
-
-	/* If src == dest do nothing */
-	if (dest < src) {
-		for(i = 0; i < n; i++) {
-			d[i] = s[i];
-		}
-	}
-	else if (dest > src) {
-		for(i = n -1; i >= 0; i--) {
-			d[i] = s[i];
-		}
-	}
-	return dest;
-}
 
 /*
  * Print a people friendly address
@@ -173,7 +155,7 @@ void aprint(int y, int x, uint32_t page)
 	}
 }
 
-
+/*
 void memset(void *dst, int c, int len)
 {
     char *d = (char*)dst;
@@ -182,6 +164,7 @@ void memset(void *dst, int c, int len)
 		*d++ = c;
 	} 
 }
+*/
 /*
 Register  Contents
  0x00      Seconds
@@ -244,6 +227,7 @@ void read_cmos(struct cmos_content * cmos)
     }
 }
 
+
 void sleep(int sec)
 {
    
@@ -260,3 +244,4 @@ void sleep(int sec)
     return;
     
 }
+

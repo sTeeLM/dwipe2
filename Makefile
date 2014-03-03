@@ -11,7 +11,11 @@ FDISK=/dev/fd0
 AS=as -32
 CC=gcc
 
-CFLAGS= -Wall -march=i486 -m32 -O2 -fomit-frame-pointer -fno-builtin -ffreestanding -fno-stack-protector
+CFLAGS= -Wall -march=i486 -m32 -O2 -fomit-frame-pointer -fno-builtin -ffreestanding -fno-stack-protector \
+        -I newlib-output/i386-elf/include/
+LDFLAGS= -L newlib-output/i386-elf/lib
+
+LIBS= -lc -lm -lminios
 
 OBJS= head.o int13.o main.o inter.o lib.o display.o disk.o test.o
 
@@ -21,9 +25,8 @@ all: memtest.bin memtest
 # symbols and then link it dynamically so I have full
 # relocation information
 memtest_shared: $(OBJS) memtest_shared.lds Makefile
-	$(LD) --warn-constructors --warn-common -static -T memtest_shared.lds \
-	-o $@ $(OBJS) && \
-	$(LD) -shared -Bsymbolic -T memtest_shared.lds -o $@ $(OBJS)
+	$(LD) $(LDFLAGS) --warn-constructors --warn-common -static -T memtest_shared.lds \
+	-o $@ $(OBJS) $(LIBS)
 
 memtest_shared.bin: memtest_shared
 	objcopy -O binary $< memtest_shared.bin

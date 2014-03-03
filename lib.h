@@ -1,7 +1,9 @@
 #ifndef __DWIPE_LIB_H__
 #define __DWIPE_LIB_H__
 
-#include "stdint.h"
+#include <stdint.h>
+#include <string.h>
+
 struct cpu_ident {
 	char type;
 	char model;
@@ -34,15 +36,17 @@ struct cpu_ident {
 
 extern struct cpu_ident cpu_id;
 
+/*
 int memcmp(const void *s1, const void *s2, uint32_t count);
 void memcpy (void *dst, void *src, int len);
 void itoa(char s[], int n);
 void reverse(char s[]);
 void *memmove(void *dest, const void *src, uint32_t n);
 void memset(void *dst, int c, int len);
+
+*/
+
 void set_cache(int val);
-void sleep(int sec);
-
-
+//void sleep(int sec);
 
 #endif

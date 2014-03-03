@@ -1,3 +1,5 @@
+#include <sys/unistd.h>
+#include <stdio.h>
 #include "defs.h"
 #include "stdint.h"
 #include "display.h"
@@ -453,6 +455,8 @@ void do_test()
 
  //   test14();
     test18();
+
+    FILE * f = fopen("/dev/zero", "r");
 
     while(1);
 }
