@@ -11,11 +11,11 @@
 #undef errno
 extern int errno;
 
-struct timeval;
+extern void do_gettimeofday(struct timeval *tv);
 
 int _gettimeofday(struct timeval  *ptimeval, void *ptimezone)
 {
-  errno = ENOSYS;
-  return -1;
+    do_gettimeofday(ptimeval);
+    return 0;
 }
 

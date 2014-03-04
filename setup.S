@@ -109,6 +109,7 @@ kernel_version:	.ascii	UTS_RELEASE
 # now we want to move to protected mode ...
 ################kernel header end###################
 start_of_setup:	
+jmp start_of_setup;
 	cli			# no interrupts allowed , @paddr 0x90200# 
 	movb	$0x80, %al	# disable NMI for the bootup sequence
 	outb	%al, $0x70

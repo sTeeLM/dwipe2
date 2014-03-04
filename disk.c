@@ -1,5 +1,7 @@
 #include "disk.h"
 #include "lib.h"
+#include "debug.h"
+#include <inttypes.h>
 
 extern char real_code_begin[];
 extern char real_code_end[];
@@ -27,6 +29,9 @@ void relocate_real()
 {
     uint32_t offset = (uint32_t)real_code_begin - (uint32_t)REAL_CODE_ADDR;
 
+    SDBG("real_code_begin = %p, real_code_end = %p", real_code_begin, real_code_end);
+    SDBG("offset = %x", offset);
+
     /* relocate code */
     char * dst = (char *)REAL_CODE_ADDR;
     memcpy(dst, real_code_begin, real_code_end - real_code_begin);
@@ -38,11 +43,26 @@ void relocate_real()
     p_real_disk_param_ext = &real_disk_param_ext;
     p_real_ret    = &real_ret;
 
+    SDBG("before relocate");
+    SDBG("p_real_buffer = %p", p_real_buffer);
+    SDBG("p_real_reg = %p", p_real_reg);
+    SDBG("p_real_dap = %p", p_real_dap);
+    SDBG("p_real_disk_param_ext = %p", p_real_disk_param_ext);
+    SDBG("p_real_ret = %p", p_real_ret);
+
+
     p_real_buffer = (char *)p_real_buffer - offset;
     p_real_reg    = (struct reg_req *)((char *)p_real_reg - offset);
     p_real_dap    = (struct disk_dap *)((char *)p_real_dap - offset);
     p_real_disk_param_ext = (struct disk_param_ext *)((char *)p_real_disk_param_ext - offset);
-    p_real_ret    -= (uint32_t *)((char *)p_real_ret - offset);
+    p_real_ret    = (uint32_t *)((char *)p_real_ret - offset);
+
+    SDBG("after relocate");
+    SDBG("p_real_buffer = %p", p_real_buffer);
+    SDBG("p_real_reg = %p", p_real_reg);
+    SDBG("p_real_dap = %p", p_real_dap);
+    SDBG("p_real_disk_param_ext = %p", p_real_disk_param_ext);
+    SDBG("p_real_ret = %p", p_real_ret);
 }
 
 
@@ -564,3 +584,62 @@ int chs2lba(struct disk_param * param, int cylinder, int head, int sector ,uint6
     return 0;
 }
 
+struct disk_param disk_list[128];
+uint32_t disk_cnt;
+
+void enum_disk(void)
+{
+    int i, index = 0;
+    int ext, version;
+    int ret;
+    struct disk_param * param = disk_list;
+    for(i = 0x80; i <= 0xff; i ++){
+        //SDBG("enum disk %x", i);
+        ret = get_disk_param(i, param);
+        if(0 == ret) {
+            //SDBG("get_disk_param on %x OK", i);
+            index ++;
+            ret = check_extensions_present(i, &ext, &version);
+            if( ret == 0 && (ext & 0x1) ) {
+                ret = get_disk_param_ext(param);
+                if(ret != 0) {
+                    SERR("get_disk_param_ext on %x fail %d", i, ret);
+                } else {
+                    SDBG("get_disk_param_ext on %x OK", i);
+                }
+            } else if(ret != 0){
+                SERR("check_extensions_present on %x fail %d", i, ret);
+            } else {
+                SERR("check_extensions_present on %x ok, but not support ext, ext = %x, version = %x", i, ext, version);
+            }
+        } else {
+            //SERR("get_disk_param on %x fail %d", i, ret);
+        }
+        param = &disk_list[index];
+    }
+
+    disk_cnt = index;
+
+    SDBG("total disk: %d", disk_cnt);
+}
+
+void dump_disk(struct disk_param * param)
+{
+    SDBG("----------start dump disk--------");
+    SDBG("++id: %x", param->disk_id);
+    SDBG("++drives: %d", param->drives);
+    SDBG("++last_heads: %d", param->last_heads);
+    SDBG("++last_cylinders: %d", param->last_cylinders);
+    SDBG("++last_sectors_per_track: %d", param->last_sectors_per_track);
+    SDBG("++drive_type: %d", param->drive_type);
+    SDBG("++has_ext: %d", param->has_ext);
+    SDBG("++ext size: %d", param->ext.size);
+    SDBG("++ext flags: %d", param->ext.flags);
+    SDBG("++ext ncylinders: %d", param->ext.ncylinders);
+    SDBG("++ext nheads: %d", param->ext.nheads);
+    SDBG("++ext sectors_per_track: %d", param->ext.sectors_per_track);
+    SDBG("++ext nsectors: %" PRIu64 , param->ext.nsectors);
+    SDBG("++ext bytes_per_sector: %d", param->ext.bytes_per_sector);
+    SDBG("++ext edd: %x", param->ext.edd);
+    SDBG("----------end dump disk--------");
+}

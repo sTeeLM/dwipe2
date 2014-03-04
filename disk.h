@@ -78,10 +78,14 @@ int check_extensions_present(uint8_t disk_id, int * ext, int * version);
 int lba2chs(struct disk_param *, uint64_t lba, int * cylinder, int * head, int * sector );
 int chs2lba(struct disk_param *, int cylinder, int head, int sector ,uint64_t * lba);
 void relocate_real(void);
+void enum_disk();
+void dump_disk(struct disk_param * param);
 
 extern char * p_real_buffer;
 extern struct reg_req * p_real_reg;
 extern struct disk_dap * p_real_dap;
 extern struct disk_param_ext * p_real_disk_param_ext;
 extern uint32_t * p_real_ret;
+extern struct disk_param disk_list[];
+extern uint32_t disk_cnt;
 #endif

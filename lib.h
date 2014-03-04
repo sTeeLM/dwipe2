@@ -35,7 +35,48 @@ struct cpu_ident {
 };
 
 extern struct cpu_ident cpu_id;
+static inline void cache_off(void)
+{
+        asm(
+		"push %eax\n\t"
+		"movl %cr0,%eax\n\t"
+                "orl $0x40000000,%eax\n\t"  /* Set CD */
+                "movl %eax,%cr0\n\t"
+		"wbinvd\n\t"
+		"pop  %eax\n\t");
+}
+static inline void cache_on(void)
+{
+        asm(
+		"push %eax\n\t"
+		"movl %cr0,%eax\n\t"
+		"andl $0x9fffffff,%eax\n\t" /* Clear CD and NW */
+		"movl %eax,%cr0\n\t"
+		"pop  %eax\n\t");
+}
 
+static inline void reboot(void)
+{
+        asm(
+		"movl %cr0,%eax\n\t"
+		"andl  $0x00000011,%eax\n\t"
+		"orl   $0x60000000,%eax\n\t"
+		"movl  %eax,%cr0\n\t"
+		"movl  %eax,%cr3\n\t"
+		"movl  %cr0,%ebx\n\t"
+		"andl  $0x60000000,%ebx\n\t"
+		"jz    1f\n\t"
+		".byte 0x0f,0x09\n\t"	/* Invalidate and flush cache */
+		"1: andb  $0x10,%al\n\t"
+		"movl  %eax,%cr0\n\t"
+		"movw $0x0010,%ax\n\t"
+		"movw %ax,%ds\n\t"
+		"movw %ax,%es\n\t"
+		"movw %ax,%fs\n\t"
+		"movw %ax,%gs\n\t"
+		"movw %ax,%ss\n\t"
+		"ljmp  $0xffff,$0x0000\n\t");
+}
 /*
 int memcmp(const void *s1, const void *s2, uint32_t count);
 void memcpy (void *dst, void *src, int len);
@@ -47,6 +88,7 @@ void memset(void *dst, int c, int len);
 */
 
 void set_cache(int val);
+
 //void sleep(int sec);
 
 #endif

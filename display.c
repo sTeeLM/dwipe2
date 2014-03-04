@@ -1,5 +1,8 @@
+#include <stdio.h>
+#include <inttypes.h>
 #include "display.h"
 #include "io.h"
+#include "disk.h"
 
 static char buf[18];
 
@@ -312,7 +315,7 @@ void check_input(void)
 		switch(c & 0x7f) {
 		case 1:
 			/* "ESC" key was pressed, bail out.  */
-			cprint(LINE_RANGE, COL_MID+23, "Halting... ");
+			/* cprint(LINE_RANGE, COL_MID+23, "Halting... ");*/
 
 			/* tell the BIOS to do a warm start */
 			*((unsigned short *)0x472) = 0x1234;
@@ -352,19 +355,100 @@ void display_init(void)
 	}
 
 	/* Make the name background red */
-	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
+	for(i=0, pp=(char *)(SCREEN_ADR+1); i<SCREEN_WIDTH; i++, pp+=2) {
 		*pp = 0x20;
 	}
-	cprint(0, 0, "      DWiPe  v1.0.0      ");
+	cprint(0, 0, "                  DWiPe  v1.0.0 by sTeeL(steel.mental@gmail.com)               "); /* 80 char */
 
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 		*pp = 0xA4;
 	}
-	cprint(0, 15, "+");
+	cprint(0, 23, "+");
 
 	/* Do reverse video for the bottom display line */
 	for(i=0, pp=(char *)(SCREEN_ADR+1+(24 * 160)); i<80; i++, pp+=2) {
 		*pp = 0x71;
 	}
+}
 
+static void display_line(int y)
+{
+    int i;
+    char buffer[SCREEN_WIDTH + 1];
+    for(i = 0 ; i < SCREEN_WIDTH; i ++)
+        buffer[i] = '-';
+    buffer[i] = 0;
+    cprint(y,0, buffer);
+}
+
+void display_cpu(const char * cpu, int l1, int l2, int l3, uint32_t speed_kh)
+{
+    char buffer[512];
+    int len;
+
+    display_line(LINE_CPU - 1);
+
+    len = snprintf(buffer, sizeof(buffer), "CPU: %s|L1 cache: %dK|L2 cache: %dK|L3 cache %dK|Speed: %d.%d MHz",
+        cpu, l1, l2, l3, speed_kh/1000, (speed_kh/100)%10);
+    buffer[len] = 0;
+    cprint(LINE_CPU,0, buffer);
+
+    display_line(LINE_CPU + 1);
+
+}
+
+void display_mode(void)
+{
+    cprint(LINE_MODE, 0, "this is mode");
+    display_line(LINE_MODE + 1);
+}
+
+void display_disk_list(uint32_t total, uint32_t wiping, uint32_t wiped)
+{
+    char buffer[1024];
+    snprintf(buffer, sizeof(buffer), "Total %02d    Wiping %02d    Wiped %02d", 
+        total, wiping, wiped);
+    cprint(LINE_DISK_LIST, 0, buffer);
+    display_line(LINE_DISK_LIST + 1);
+}
+
+void display_disk_status(struct disk_param *disk)
+{
+    char buffer[1024];
+
+    dump_disk(disk);
+
+    snprintf(buffer, sizeof(buffer), "Disk %02x", disk->disk_id);
+    cprint(LINE_WIPE_STATUS, 0, buffer);
+
+    snprintf(buffer, sizeof(buffer), "Drives %d", disk->drives);
+    cprint(LINE_WIPE_STATUS + 1, 10, buffer);
+
+    snprintf(buffer, sizeof(buffer), "Legacy C/H/S: %d/%d/%d", 
+        disk->last_cylinders,
+        disk->last_heads,
+        disk->last_sectors_per_track);
+    cprint(LINE_WIPE_STATUS + 2, 10, buffer);
+    if(disk->has_ext) {
+        snprintf(buffer, sizeof(buffer), "Extent Info: C/H/S: %d/%d/%d Sector Size: %d B",
+            disk->ext.ncylinders,
+            disk->ext.nheads,
+            disk->ext.sectors_per_track,
+            disk->ext.bytes_per_sector);
+        cprint(LINE_WIPE_STATUS + 3, 10, buffer);
+        snprintf(buffer, sizeof(buffer), "Extent Info: Total Sectors: %" PRIu64,disk->ext.nsectors);
+        cprint(LINE_WIPE_STATUS + 4, 10, buffer);
+            
+    } else {
+        snprintf(buffer, sizeof(buffer), "Extent Info: Not Supported");
+        cprint(LINE_WIPE_STATUS + 3, 10, buffer);
+    }
+
+}
+
+void display_progress(int progress, uint64_t write_bytes)
+{
+    char buffer[1024];
+    snprintf(buffer, sizeof(buffer), "Progress %d", progress);
+    cprint(LINE_PROGRESS, 0, buffer);
 }

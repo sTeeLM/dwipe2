@@ -17,7 +17,7 @@ LDFLAGS= -L newlib-output/i386-elf/lib
 
 LIBS= -lc -lm -lminios
 
-OBJS= head.o int13.o main.o inter.o lib.o display.o disk.o test.o
+OBJS= head.o int13.o main.o inter.o lib.o display.o disk.o test.o serial.o cmdline.o debug.o timer.o
 
 all: memtest.bin memtest
 
@@ -72,7 +72,6 @@ install: all
 
 install-precomp:
 	dd <precomp.bin >$(FDISK) bs=8192
-	
+
 dos: all
 	cat mt86+_loader memtest.bin > memtest.exe
-
