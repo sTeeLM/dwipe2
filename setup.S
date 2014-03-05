@@ -109,16 +109,16 @@ kernel_version:	.ascii	UTS_RELEASE
 # now we want to move to protected mode ...
 ################kernel header end###################
 start_of_setup:	
-jmp start_of_setup;
 	cli			# no interrupts allowed , @paddr 0x90200# 
 	movb	$0x80, %al	# disable NMI for the bootup sequence
 	outb	%al, $0x70
 
 # The system will move itself to its rightful place.
 
-	push	%cs
-	pop	%ds
+	pushw	%cs
+	popw	%ds
 	lidt	idt_48 - start	# load idt with 0,0
+	xorl	%ebx, %ebx
 	pushw	%ds
 	popw	%bx
 	shl	$4, %ebx
@@ -126,6 +126,13 @@ jmp start_of_setup;
 	addl	%ebx, %eax
 	movl	%eax, gdt_48 - start + 2
 	lgdt	gdt_48 - start	# load gdt with whatever appropriate
+
+	xorl	%ebx, %ebx
+	pushw	%ds
+	popw	%bx
+	shl	$4, %ebx
+	leal	cmd_line_ptr - start, %eax
+	addl	%eax, %ebx      # save cmd_line_ptr to ebx
 
 # that was painless, now we enable A20
 # start from grub-a20.patch

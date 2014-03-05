@@ -3,6 +3,4 @@
 
 int parse_cmdline();
 
-char * get_cmdline_str(char * key);
-
 #endif

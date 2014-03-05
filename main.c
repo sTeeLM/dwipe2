@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "timer.h"
 #include "cmdline.h"
+#include "option.h"
 
 void wipe_disk(struct disk_param * param)
 {

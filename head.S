@@ -99,8 +99,9 @@ Y	+------------------------+
 
 	.code32
 	.globl startup_32
+/* ebx point to cmd_line_ptr */
 startup_32:
-	cld  # paddr 0x100000
+	cld
 	cli
 
 	/* Pick the appropriate stack address */
@@ -121,6 +122,8 @@ flush:	movl	$KERNEL_DS, %eax
 	movw	%ax, %gs
 	movw	%ax, %ss
 
+	movl	(%ebx), %eax
+	movl	%eax, cmd_line_ptr
 /*
  *  Zero BSS
  */
@@ -935,10 +938,11 @@ prot:
 	ret
 
 
-.data
+.data 
+.globl cmd_line_ptr
 zerobss:	.long	1
 clear_display:	.long	1
-
+cmd_line_ptr:	.long	1
 .bss
 .balign 16
 stack:
