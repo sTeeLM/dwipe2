@@ -1,24 +1,37 @@
-#ifndef _DWIPE_DISK_H__
-#define _DWIPE_DISK_H__
+#ifndef __MINIOS_DISK_H__
+#define __MINIOS_DISK_H__
 
 #include "stdint.h"
 #include "defs.h"
 
 
-struct reg_req
+union reg_req
 {
-    uint8_t al;
-    uint8_t ah;
-    uint8_t bl;
-    uint8_t bh;
-    uint8_t cl;
-    uint8_t ch;
-    uint8_t dl;
-    uint8_t dh;
-    uint16_t es;
-    uint16_t si;
+    struct _h {
+        uint8_t al;
+        uint8_t ah;
+        uint8_t bl;
+        uint8_t bh;
+        uint8_t cl;
+        uint8_t ch;
+        uint8_t dl;
+        uint8_t dh;
+        uint16_t es;
+        uint16_t si;
+        uint32_t res;
+    }h;
+    struct _w {
+        uint16_t ax;
+        uint16_t bx;
+        uint16_t cx;
+        uint16_t dx;
+        uint16_t es;
+        uint16_t si;
+        uint32_t res;
+    }w;
 }__attribute__((packed));
 
+typedef union reg_req reg_req_t;
 
 struct disk_dap
 {
@@ -80,12 +93,11 @@ int chs2lba(struct disk_param *, int cylinder, int head, int sector ,uint64_t * 
 void relocate_real(void);
 void enum_disk();
 void dump_disk(struct disk_param * param);
+void get_chs_from_pack(uint16_t c_s, int * cylinder, int * sector);
+void set_chs_to_pack(uint16_t * c_s, int cylinder, int sector);
 
 extern char * p_real_buffer;
-extern struct reg_req * p_real_reg;
+extern reg_req_t * p_real_reg;
 extern struct disk_dap * p_real_dap;
 extern struct disk_param_ext * p_real_disk_param_ext;
-extern uint32_t * p_real_ret;
-extern struct disk_param disk_list[];
-extern uint32_t disk_cnt;
 #endif

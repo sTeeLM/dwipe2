@@ -91,10 +91,18 @@ int parse_cmdline()
         opt.testmode = 1;
     }
 
+    if(is_cmd_exist("check")) {
+        opt.check = 1;
+    }
+
+    if(is_cmd_exist("force_chs")) {
+        opt.force_chs = 1;
+    }
+
     if(is_cmd_exist("debug") && get_cmd_item("debug") != NULL) {
         opt.debug = atoi(get_cmd_item("debug"));
         if(opt.debug < 0) opt.debug = 0;
-        if(opt.debug > 3) opt.debug = 3;
+        if(opt.debug > 0xf) opt.debug = 0xf;
     }
 
     if(is_cmd_exist("skip") && get_cmd_item("skip") != NULL) {

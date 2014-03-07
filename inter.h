@@ -1,5 +1,5 @@
-#ifndef __DWIPE_INTER_H__
-#define __DWIPE_INTER_H__
+#ifndef __MINIOS_INTER_H__
+#define __MINIOS_INTER_H__
 
 #include "stdint.h"
 

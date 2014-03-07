@@ -1056,12 +1056,13 @@ static void cpu_type(void)
 	}
 
 	/* We are here only if the CPU type supports the rdtsc instruction */
+    SINF("CPU Type: %s", cpu_type_str );
 
 	/* Print CPU speed */
 	if ((speed = cpuspeed()) > 0) {
 		if (speed < 1000000-50) {
 			speed += 50; /* for rounding */
-            SINF("Speed: %d.%d MHz", speed/1000,(speed/100)%10 );
+            SINF("CPU Speed: %d.%d MHz", speed/1000,(speed/100)%10 );
 		} else {
 			speed += 500; /* for rounding */
             SINF("Speed: %d MHz", speed/1000);
@@ -1196,5 +1197,5 @@ void timer_init(void)
     tmp = localtime(&tv.tv_sec);
     len += strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tmp);
     buffer[len] = 0;
-    SDBG("current time is %s", buffer);
+    SINF("current time is %s", buffer);
 }

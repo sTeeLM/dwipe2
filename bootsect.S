@@ -1,18 +1,3 @@
-/*
- *	 bootsect.s		Copyright (C) 1991, 1992 Linus Torvalds
- *
- * bootsect.s is loaded at 0x7c00 by the bios-startup routines, and moves
- * itself out of the way to address 0x90000, and jumps there.
- *
- * It then loads 'setup' directly after itself (0x90200), and the system
- * at 0x10000, using BIOS interrupts.
- *
- * The loader has been made as simple as possible, and continuos
- * read errors will result in a unbreakable loop. Reboot by hand. It
- * loads pretty fast by getting whole tracks at a time whenever possible.
- *
- * 1-Jan-96 Modified by Chris Brady for use as a boot loader for MemTest-86.
- */
 #define __ASSEMBLY__
 #include "defs.h"
 

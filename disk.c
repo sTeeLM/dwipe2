@@ -8,16 +8,14 @@ extern char real_code_end[];
 
 /* should be relocate to p_xx*/
 extern char real_buffer[MAX_SECTOR_BUFFER_SIZE];
-extern struct reg_req real_reg;
+extern reg_req_t real_reg;
 extern struct disk_dap real_dap;
 extern struct disk_param_ext real_disk_param_ext;
-extern uint32_t real_ret;
 
 char * p_real_buffer;
-struct reg_req * p_real_reg;
+reg_req_t * p_real_reg;
 struct disk_dap * p_real_dap;
 struct disk_param_ext * p_real_disk_param_ext;
-uint32_t * p_real_ret;
 
 extern int int13_1(void);
 extern int int13_2(void);
@@ -41,30 +39,44 @@ void relocate_real()
     p_real_reg    = &real_reg;
     p_real_dap    = &real_dap;
     p_real_disk_param_ext = &real_disk_param_ext;
-    p_real_ret    = &real_ret;
 
     SDBG("before relocate");
     SDBG("p_real_buffer = %p", p_real_buffer);
     SDBG("p_real_reg = %p", p_real_reg);
     SDBG("p_real_dap = %p", p_real_dap);
     SDBG("p_real_disk_param_ext = %p", p_real_disk_param_ext);
-    SDBG("p_real_ret = %p", p_real_ret);
 
 
     p_real_buffer = (char *)p_real_buffer - offset;
-    p_real_reg    = (struct reg_req *)((char *)p_real_reg - offset);
+    p_real_reg    = (reg_req_t *)((char *)p_real_reg - offset);
     p_real_dap    = (struct disk_dap *)((char *)p_real_dap - offset);
     p_real_disk_param_ext = (struct disk_param_ext *)((char *)p_real_disk_param_ext - offset);
-    p_real_ret    = (uint32_t *)((char *)p_real_ret - offset);
 
     SDBG("after relocate");
     SDBG("p_real_buffer = %p", p_real_buffer);
     SDBG("p_real_reg = %p", p_real_reg);
     SDBG("p_real_dap = %p", p_real_dap);
     SDBG("p_real_disk_param_ext = %p", p_real_disk_param_ext);
-    SDBG("p_real_ret = %p", p_real_ret);
 }
 
+/*
+CX	[7:6] [15:8] logical last index of cylinders = number_of - 1 (because index starts with 0)
+[5:0] logical last index of sectors per track = number_of (because index starts with 1)
+CX := ( ( cylinder and 255 ) shl 8 ) or ( ( cylinder and 768 ) shr 2 ) or sector;
+cylinder := ( (CX and 0xFF00) shr 8 ) or ( (CX and 0xC0) shl 2)
+sector := CX and 63;
+*/
+
+void get_chs_from_pack(uint16_t c_s, int * cylinder, int * sector)
+{
+    *cylinder = ( (c_s & 0xFF00) >> 8 ) | ( (c_s & 0xC0) << 2);
+    *sector  = c_s & 63;
+}
+
+void set_chs_to_pack(uint16_t * c_s, int cylinder, int sector)
+{
+    *c_s = ( ( cylinder & 255 ) << 8 ) | ( ( cylinder & 768 ) >> 2 ) | sector;
+}
 
 /*
 INT 13h AH=08h: Read Drive Parameters[edit]
@@ -87,36 +99,32 @@ ES:DI	pointer to drive parameter table (only for floppies)
 int get_disk_param(uint8_t disk_id, struct disk_param * param)
 {
     int ret;
-    uint32_t cx = 0;
+    int c, s;
 
     memset(param, 0, sizeof(struct disk_param));
     
-    p_real_reg->al = 0;
-    p_real_reg->ah = 0x08;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->ch = 0;
-    p_real_reg->cl = 0;
-    p_real_reg->dh = 0;
-    p_real_reg->dl = disk_id; 
+    p_real_reg->h.al = 0;
+    p_real_reg->h.ah = 0x08;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.ch = 0;
+    p_real_reg->h.cl = 0;
+    p_real_reg->h.dh = 0;
+    p_real_reg->h.dl = disk_id; 
     ret = int13_1();
     if(ret == 0) {
         param->disk_id = disk_id;
-        param->drives = p_real_reg->dl;
-        param->last_heads = p_real_reg->dh;
-        cx = p_real_reg->cl;
-        param->last_sectors_per_track = (uint8_t)(p_real_reg->cl & 0x000003f);
-        cx <<=2;
-        cx &=0x300;
-        cx |= p_real_reg->ch;
-        param->last_cylinders = (uint16_t) (cx & 0x3ff);
-        param->drive_type = p_real_reg->bl;
-
+        param->drives = p_real_reg->h.dl;
+        param->last_heads = p_real_reg->h.dh;
+        get_chs_from_pack(p_real_reg->w.cx, &c, &s);
+        param->last_sectors_per_track = s;
+        param->last_cylinders = c;
+        param->drive_type = p_real_reg->h.bl;
         param->has_ext = 0;
         memset(&param->ext, 0, sizeof(param->ext));
     }
 
-    return ret == 0 ? ret : p_real_reg->ah;
+    return ret == 0 ? ret : p_real_reg->h.ah;
 }
 
 /*
@@ -144,14 +152,14 @@ AH	Return Code
 int get_disk_param_ext(struct disk_param * param)
 {
     int ret;
-    p_real_reg->al = 0;
-    p_real_reg->ah = 0x48;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->ch = 0;
-    p_real_reg->cl = 0;
-    p_real_reg->dh = 0;
-    p_real_reg->dl = param->disk_id;
+    p_real_reg->h.al = 0;
+    p_real_reg->h.ah = 0x48;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.ch = 0;
+    p_real_reg->h.cl = 0;
+    p_real_reg->h.dh = 0;
+    p_real_reg->h.dl = param->disk_id;
 
     ret = int13_4();
     if(ret == 0) {
@@ -159,7 +167,7 @@ int get_disk_param_ext(struct disk_param * param)
         memcpy(&param->ext, p_real_disk_param_ext, sizeof(param->ext));
     }
 
-    return ret == 0 ? ret : p_real_reg->ah;
+    return ret == 0 ? ret : p_real_reg->h.ah;
 }
 
 /*
@@ -173,14 +181,14 @@ CF	Set on error
 int reset_disk_drive(uint8_t disk_id)
 {
     int ret;
-    p_real_reg->al = 0;
-    p_real_reg->ah = 0x0;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->ch = 0;
-    p_real_reg->cl = 0;
-    p_real_reg->dh = 0;
-    p_real_reg->dl = disk_id;
+    p_real_reg->h.al = 0;
+    p_real_reg->h.ah = 0x0;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.ch = 0;
+    p_real_reg->h.cl = 0;
+    p_real_reg->h.dh = 0;
+    p_real_reg->h.dl = disk_id;
     
     ret = int13_1();
 
@@ -227,18 +235,18 @@ CF	Set On Error, Clear If No Error
 int get_last_status(uint8_t disk_id, int * status)
 {
     int ret;
-    p_real_reg->al = 0;
-    p_real_reg->ah = 0x01;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->ch = 0;
-    p_real_reg->cl = 0;
-    p_real_reg->dh = 0;
-    p_real_reg->dl = disk_id;
+    p_real_reg->h.al = 0;
+    p_real_reg->h.ah = 0x01;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.ch = 0;
+    p_real_reg->h.cl = 0;
+    p_real_reg->h.dh = 0;
+    p_real_reg->h.dl = disk_id;
 
     ret = int13_1();
 
-    *status = p_real_reg->al;
+    *status = p_real_reg->h.al;
 
     return ret;
 }
@@ -258,7 +266,6 @@ static int varify_chs(int cylinder, int head, int sector)
 static int sector_chs_verify(struct disk_param * param, int cylinder, int head, int sector, uint32_t nsector, void * buffer, uint32_t size)
 {
     int ret;
-    int cx = 0;
     int sector_size = 512;
 
     if(varify_chs(cylinder, head, sector) < 0)
@@ -284,31 +291,23 @@ static int sector_chs_verify(struct disk_param * param, int cylinder, int head, 
         || sector <=0
         || sector > param->last_sectors_per_track) {
         return -1;
-    }   
-    cx = cylinder;
-    cx >>=2;
-    cx &=0xc0;
-    cx |= (sector & 0x3f);
-    p_real_reg->cl = cx & 0xff;
+    }
 
-    p_real_reg->ch = cylinder & 0xff;
-
-    p_real_reg->al = nsector;
-    p_real_reg->ah = 0x04;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->dh = head;
-    p_real_reg->dl = param->disk_id;
-
+    p_real_reg->h.dh = head;
+    set_chs_to_pack(&p_real_reg->w.cx, cylinder, sector);
+    p_real_reg->h.al = nsector;
+    p_real_reg->h.ah = 0x04;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.dl = param->disk_id;
     ret = int13_2();
 
-    return ret == 0 ? ret : p_real_reg->ah;
+    return ret == 0 ? ret : p_real_reg->h.ah;
 }
 
 static int sector_chs_rw(int is_write, struct disk_param * param, int cylinder, int head, int sector, uint32_t nsector, void * buffer, uint32_t * size, int check)
 {
     int ret;
-    int cx = 0;
     int sector_size = 512;
 
     if(varify_chs(cylinder, head, sector) < 0)
@@ -348,37 +347,28 @@ static int sector_chs_rw(int is_write, struct disk_param * param, int cylinder, 
     if(is_write) {
         memcpy(p_real_buffer, buffer, *size );
     }
-
-
-    cx = cylinder;
-    cx >>=2;
-    cx &=0xc0;
-    cx |= (sector & 0x3f);
-    p_real_reg->cl = cx & 0xff;
-
-    p_real_reg->ch = cylinder & 0xff;
-
-    p_real_reg->al = nsector;
-    p_real_reg->ah = is_write ? 0x03 : 0x02;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->dh = head;
-    p_real_reg->dl = param->disk_id;
+    p_real_reg->h.dh = head;
+    set_chs_to_pack(&p_real_reg->w.cx, cylinder, sector);
+    p_real_reg->h.al = nsector;
+    p_real_reg->h.ah = is_write ? 0x03 : 0x02;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.dl = param->disk_id;
 
     ret = int13_2();
 
     if(ret == 0) {
         if(!is_write) {
-            memcpy(buffer, p_real_buffer, (p_real_reg->al > nsector ? nsector : p_real_reg->al) * sector_size );
+            memcpy(buffer, p_real_buffer, (p_real_reg->h.al > nsector ? nsector : p_real_reg->h.al) * sector_size );
         }
-        *size = (p_real_reg->al > nsector ? nsector : p_real_reg->al) * sector_size;
+        *size = (p_real_reg->h.al > nsector ? nsector : p_real_reg->h.al) * sector_size;
 
         if(check && is_write) {
             ret = sector_chs_verify(param, cylinder, head, sector, nsector, buffer, *size);
         }
     }
 
-    return ret == 0 ? ret : p_real_reg->ah;
+    return ret == 0 ? ret : p_real_reg->h.ah;
 }
 
 /*
@@ -431,14 +421,14 @@ static int sectors_lba_rw(int is_write, struct disk_param * param, uint64_t offs
     p_real_dap->nsectors = nsector;
     p_real_dap->begin = offset;
 
-    p_real_reg->al = check;
-    p_real_reg->ah = is_write ? 0x43 : 0x42;
-    p_real_reg->bl = 0;
-    p_real_reg->bh = 0;
-    p_real_reg->ch = 0;
-    p_real_reg->cl = 0;
-    p_real_reg->dh = 0;
-    p_real_reg->dl = param->disk_id;
+    p_real_reg->h.al = check;
+    p_real_reg->h.ah = is_write ? 0x43 : 0x42;
+    p_real_reg->h.bl = 0;
+    p_real_reg->h.bh = 0;
+    p_real_reg->h.ch = 0;
+    p_real_reg->h.cl = 0;
+    p_real_reg->h.dh = 0;
+    p_real_reg->h.dl = param->disk_id;
 
     ret = int13_3();
 
@@ -446,10 +436,10 @@ static int sectors_lba_rw(int is_write, struct disk_param * param, uint64_t offs
         if(!is_write) {
             memcpy(buffer, p_real_buffer, (p_real_dap->nsectors > nsector ? nsector : p_real_dap->nsectors) * param->ext.bytes_per_sector );
         }
-        *size = (p_real_reg->al > nsector ? nsector : p_real_dap->nsectors) * param->ext.bytes_per_sector;
+        *size = (p_real_reg->h.al > nsector ? nsector : p_real_dap->nsectors) * param->ext.bytes_per_sector;
     }
 
-    return ret == 0 ? ret : p_real_reg->ah;
+    return ret == 0 ? ret : p_real_reg->h.ah;
 }
 
 /*
@@ -535,22 +525,22 @@ CX	Interface support bitmask:
 int check_extensions_present(uint8_t disk_id, int * ext, int * version)
 {
     int ret;
-    p_real_reg->al = 0;
-    p_real_reg->ah = 0x41;
-    p_real_reg->bl = 0xaa;
-    p_real_reg->bh = 0x55;
-    p_real_reg->ch = 0;
-    p_real_reg->cl = 0;
-    p_real_reg->dh = 0;
-    p_real_reg->dl = disk_id;
+    p_real_reg->h.al = 0;
+    p_real_reg->h.ah = 0x41;
+    p_real_reg->h.bl = 0xaa;
+    p_real_reg->h.bh = 0x55;
+    p_real_reg->h.ch = 0;
+    p_real_reg->h.cl = 0;
+    p_real_reg->h.dh = 0;
+    p_real_reg->h.dl = disk_id;
 
     ret = int13_1();
     if(ret == 0) {
-        *ext = p_real_reg->cl;
-        *version = p_real_reg->ah;
+        *ext = p_real_reg->h.cl;
+        *version = p_real_reg->h.ah;
     }
 
-    return ret == 0 ? ret : p_real_reg->ah;
+    return ret == 0 ? ret : p_real_reg->h.ah;
 
 }
 /*
@@ -582,45 +572,6 @@ int chs2lba(struct disk_param * param, int cylinder, int head, int sector ,uint6
         return -1;
     *lba = (cylinder * (param->last_heads + 1) + head) *( param->last_sectors_per_track) + sector - 1;
     return 0;
-}
-
-struct disk_param disk_list[128];
-uint32_t disk_cnt;
-
-void enum_disk(void)
-{
-    int i, index = 0;
-    int ext, version;
-    int ret;
-    struct disk_param * param = disk_list;
-    for(i = 0x80; i <= 0xff; i ++){
-        //SDBG("enum disk %x", i);
-        ret = get_disk_param(i, param);
-        if(0 == ret) {
-            //SDBG("get_disk_param on %x OK", i);
-            index ++;
-            ret = check_extensions_present(i, &ext, &version);
-            if( ret == 0 && (ext & 0x1) ) {
-                ret = get_disk_param_ext(param);
-                if(ret != 0) {
-                    SERR("get_disk_param_ext on %x fail %d", i, ret);
-                } else {
-                    SDBG("get_disk_param_ext on %x OK", i);
-                }
-            } else if(ret != 0){
-                SERR("check_extensions_present on %x fail %d", i, ret);
-            } else {
-                SERR("check_extensions_present on %x ok, but not support ext, ext = %x, version = %x", i, ext, version);
-            }
-        } else {
-            //SERR("get_disk_param on %x fail %d", i, ret);
-        }
-        param = &disk_list[index];
-    }
-
-    disk_cnt = index;
-
-    SDBG("total disk: %d", disk_cnt);
 }
 
 void dump_disk(struct disk_param * param)

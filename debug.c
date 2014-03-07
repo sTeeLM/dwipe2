@@ -1,10 +1,8 @@
 #include "serial.h"
 #include "debug.h"
+#include "option.h"
 #include <stdio.h>
 #include <stdarg.h>
-
-int minios_quiet;
-
 
 void _minios_print_log(int level, const char * file, int line, const char * fmt, ...)
 {
@@ -13,7 +11,8 @@ void _minios_print_log(int level, const char * file, int line, const char * fmt,
     size_t len = 0;
     const char * log_str = "ERR ";
 
-    if(minios_quiet)
+    /* 0:nothing, 1:err & warn only, 2: info & err & warn, 3: debug, info, err, warn */
+    if(!(opt.debug & level))
         return;
 
     switch(level) {

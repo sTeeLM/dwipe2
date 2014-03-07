@@ -9,11 +9,12 @@ extern int errno;
 
 #define MAX_HEAP_SIZE 10485760 // 10MB
 
-extern const char * _end;
+extern char _end[];
 static char * heap_ptr;
 
 void * _sbrk (int nbytes)
 { 
+
     if(heap_ptr == 0)
         heap_ptr = _end;
 

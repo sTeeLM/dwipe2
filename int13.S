@@ -29,8 +29,8 @@ int13_1:
 	movw	$0, 10(%edi)  # zero si
 	movw	$0, 12(%edi)  # zero di
 	call	query_pcbios
-	movl	p_real_ret, %edi
-	movl	(%edi), %eax
+	movl	p_real_reg, %edi
+	movl	14(%edi), %eax
 	addl	$0x8, %esp
 	pop	%ebx
 	pop	%edi
@@ -61,8 +61,8 @@ int13_2:
 	movw	$0, 12(%edi)  # zero di
 	movw	%si, 2(%edi)   # set bx as offset
 	call	query_pcbios
-	movl	p_real_ret, %edi
-	movl	(%edi), %eax
+	movl	p_real_reg, %edi
+	movl	14(%edi), %eax
 	addl	$0x8, %esp
 	popl	%ebx
 	popl	%edi
@@ -98,8 +98,8 @@ int13_3:
 	movw	%ax, 10(%edi)   # set si
 	movw	$0, 12(%edi)    # zero di
 	call	query_pcbios
-	movl	p_real_ret, %edi
-	movl	(%edi), %eax
+	movl	p_real_reg, %edi
+	movl	14(%edi), %eax
 	addl	$0x8, %esp
 	popl	%ebx
 	popl	%ecx
@@ -127,8 +127,8 @@ int13_4:
 	movw	%ax, 10(%edi)   # set si
 	movw	$0, 12(%edi)    # zero di
 	call	query_pcbios
-	movl	p_real_ret, %edi
-	movl	(%edi), %eax
+	movl	p_real_reg, %edi
+	movl	14(%edi), %eax
 	addl	$0x8, %esp
 	popl	%ebx
 	popl	%edi

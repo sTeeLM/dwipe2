@@ -1,12 +1,3 @@
-/* lib.c - MemTest-86  Version 3.0
- *
- * Released under version 2 of the Gnu Public License.
- * By Chris Brady, cbrady@sgi.com
- * ----------------------------------------------------
- * MemTest86+ V4.00 Specific code (GPL V2.0)
- * By Samuel DEMEULEMEESTER, memtest@memtest.org
- * http://www.canardplus.com - http://www.memtest.org
-*/
 #include <sys/time.h>
 #include "defs.h"
 #include "lib.h"
@@ -120,3 +111,9 @@ uint64_t __udivdi3(uint64_t num, uint64_t den)
    return __udivmoddi4(num, den, NULL);
 }
 
+uint64_t __umoddi3(uint64_t num, uint64_t den)
+{
+    uint64_t v;
+    (void) __udivmoddi4(num, den, &v);
+    return v;
+}

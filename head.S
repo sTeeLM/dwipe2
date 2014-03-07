@@ -1,16 +1,3 @@
-/*
- *  linux/boot/head.S
- *  Copyright (C) 1991, 1992  Linus Torvalds
- */
-
-/*
- *  head.S contains the 32-bit startup code.
- *
- *  1-Jan-96 Modified by Chris Brady for use as a boot/loader for MemTest-86.
- *  Setup the memory management for flat non-paged linear addressing.
- *  17 May 2004 : Added X86_PWRCAP for AMD64 (Memtest86+ - Samuel D.)
- */
-
 .text
 #define __ASSEMBLY__
 #include "defs.h"
@@ -869,7 +856,7 @@ gdt_real:
 gdt_real_end:
 
 real_data:
-	.globl real_reg, real_ret, real_dap, real_disk_param_ext,real_buffer,real_param_ext
+	.globl real_reg, real_dap, real_disk_param_ext,real_buffer,real_param_ext
 .balign 16
 real_reg:
 	.word 0  # ax
@@ -879,8 +866,7 @@ real_reg:
 	.word 0  # es
 	.word 0  # si
 	.word 0  # di
-real_ret:
-	.long 0
+	.long 0  # res
 
 .balign 16
 real_dap:

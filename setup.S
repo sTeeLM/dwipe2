@@ -1,11 +1,3 @@
-/*
- * setup.s is responsible for getting the system data from the BIOS,
- * and putting them into the appropriate places in system memory.
- * both setup.s and system has been loaded by the bootblock.
- *
- * 1-Jan-96 Modified by Chris Brady for use as a boot/loader for memtest-86.
- */
-
 #define __ASSEMBLY__
 #include "defs.h"
 

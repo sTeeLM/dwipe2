@@ -1,11 +1,5 @@
-/* defs.h - MemTest-86 assembler/compiler definitions
- *
- * Released under version 2 of the Gnu Public License.
- * By Chris Brady, cbrady@sgi.com
- */
-
-#ifndef __DWIPE_DEFS_H__
-#define __DWIPE_DEFS_H__
+#ifndef __MINIOS_DEFS_H__
+#define __MINIOS_DEFS_H__
 
 #define SETUPSECS	8		/* Number of setup sectors */
 

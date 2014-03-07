@@ -1,5 +1,5 @@
-#ifndef __DWIPE_LIB_H__
-#define __DWIPE_LIB_H__
+#ifndef __MINIOS_LIB_H__
+#define __MINIOS_LIB_H__
 
 #include <stdint.h>
 #include <string.h>
@@ -54,8 +54,9 @@ static inline void cache_on(void)
 		"movl %eax,%cr0\n\t"
 		"pop  %eax\n\t");
 }
+/*
 
-static inline void reboot(void)
+static inline void poweroff(void)
 {
         asm(
 		"movl %cr0,%eax\n\t"
@@ -66,7 +67,7 @@ static inline void reboot(void)
 		"movl  %cr0,%ebx\n\t"
 		"andl  $0x60000000,%ebx\n\t"
 		"jz    1f\n\t"
-		".byte 0x0f,0x09\n\t"	/* Invalidate and flush cache */
+		".byte 0x0f,0x09\n\t"
 		"1: andb  $0x10,%al\n\t"
 		"movl  %eax,%cr0\n\t"
 		"movw $0x0010,%ax\n\t"
@@ -75,7 +76,19 @@ static inline void reboot(void)
 		"movw %ax,%fs\n\t"
 		"movw %ax,%gs\n\t"
 		"movw %ax,%ss\n\t"
-		"ljmp  $0xffff,$0x0000\n\t");
+		"movw $0x5307, %ax\n\t"
+		"movw $0x0001, %bx\n\t"  
+		"movw $0x0003, %cx\n\t"
+ 		"int $0x15\n\t"       
+        );
+}*/
+
+static inline void reboot(void) 
+{
+   __asm(
+        "movb $0xfe, %al\r\n"
+        "outb %al,$0x64"
+       );
 }
 /*
 int memcmp(const void *s1, const void *s2, uint32_t count);

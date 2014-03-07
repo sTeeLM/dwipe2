@@ -1,5 +1,5 @@
-#ifndef _ASM_IO_H
-#define _ASM_IO_H
+#ifndef __MINIOS_ASM_IO_H__
+#define __MINIOS_ASM_IO_H__
 
 /*
  * This file contains the definitions for the x86 IO instructions

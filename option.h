@@ -7,8 +7,17 @@ struct options_t
     char * skip;
     /* is test mode on? if on, only read disk not write disk */
     int testmode;
-    /* 0:nothing, 1:err & warn only, 2: info & err & warn, 3: debug, info, err, warn */
+    /* err warn info debug
+    0x1(0001) err
+    0x3(0011) err & warn
+    0x7(0111) err & warn & info
+    0xf(1111) err & warn & info & debug
+    */
     int debug;
+    /* 0: write no check, 1: write & check */
+    int check;
+    /* 1: force chs mode, 0: try use lba mode */
+    int force_chs;
 };
 
 extern struct options_t opt;

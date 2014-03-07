@@ -11,8 +11,8 @@
  * a 8250, 16450, or 16550(A).
  */
 
-#ifndef _DWIPE_SERIAL_REG_H
-#define _DWIPE_SERIAL_REG_H
+#ifndef __MINIOS_SERIAL_REG_H__
+#define __MINIOS_SERIAL_REG_H__
 
 #define UART_RX		0	/* In:  Receive buffer (DLAB=0) */
 #define UART_TX		0	/* Out: Transmit buffer (DLAB=0) */
