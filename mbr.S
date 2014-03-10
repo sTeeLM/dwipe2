@@ -156,7 +156,7 @@ print_str:
 	ret
 
 message:
-	.asciz "there", "are", "2", "tigers\r\n"
+	.asciz " there", "are", "2", "tigers\r\n"
 	.asciz "there", "are", "2", "tigers\r\n"
 	.asciz "run", "run", "run\r\n"
 	.asciz "run", "run", "run\r\n"
