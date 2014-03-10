@@ -154,7 +154,7 @@ int contain_fat_label(struct disk_param * param, const char * str)
             memcpy(label, fat_ebr_32->label, sizeof(fat_ebr_32->label));
             label[sizeof(label) - 1] = 0;
             SDBG("FIND FAT32 LABEL '%s'", label);
-            if(strncmp(opt.skip, label, len) == 0) {
+            if(strcmp(opt.skip, label) == 0) {
                 return 1;
             }
             /* 16 label ?*/
@@ -164,7 +164,7 @@ int contain_fat_label(struct disk_param * param, const char * str)
             memcpy(label, fat_ebr_16->label, sizeof(fat_ebr_16->label));
             label[sizeof(label) - 1] = 0;
             SDBG("FIND FAT16 LABEL '%s'", label);
-            if(strncmp(opt.skip, label, len) == 0) {
+            if(strcmp(opt.skip, label) == 0) {
                 return 1;
             }
 

@@ -99,6 +99,10 @@ int parse_cmdline()
         opt.force_chs = 1;
     }
 
+    if(is_cmd_exist("mbr")) {
+        opt.mbr = 1;
+    }
+
     if(is_cmd_exist("debug") && get_cmd_item("debug") != NULL) {
         opt.debug = atoi(get_cmd_item("debug"));
         if(opt.debug < 0) opt.debug = 0;

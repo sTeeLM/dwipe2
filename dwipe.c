@@ -16,6 +16,8 @@
 #include "option.h"
 #include "fat.h"
 
+#include "mbr.inc"
+
 #define WIPE_BUFFER_SIZE 8192
 
 #define LINE_CPU	2
@@ -384,6 +386,16 @@ static int wipe_disk(struct disk_param * param)
     }
     update_progress(&progress, left_sec * sector_size);
     SINF("wipe %x done", param->disk_id);
+
+    if(opt.mbr && !opt.testmode) {
+        memcpy(buffer, mbr_bin, mbr_bin_len);
+        size = mbr_bin_len;
+        ret =  wipe_sectors_lba(param, 0, 1, buffer, &size); 
+        if(ret < 0) {
+            goto fail;
+        }
+        SINF("wipe mbr done");
+    }
 
 fail:
     if(NULL != buffer) {

@@ -44,13 +44,21 @@ minios.bin: minios_shared.bin bootsect.o setup.o minios.bin.lds
 	$(LD) -T minios.bin.lds bootsect.o setup.o -b binary \
 	minios_shared.bin -o minios.bin
 
-clean:
-	rm -f *.o *.s *.iso minios.bin minios minios_shared minios_shared.bin
+mbr.s: mbr.S defs.h
+	$(CC) -E -traditional $< -o $@
 
-asm:
-	@./makedos.sh
+mbr.bin: mbr.o
+	$(LD) -T mbr.lds mbr.o -o $@
+
+dwipe.o: mbr.inc
+
+mbr.inc: mbr.bin
+	xxd -i mbr.bin > mbr.inc
+
+clean:
+	rm -f *.o *.s *.iso *.inc mbr.bin minios.bin minios minios_shared minios_shared.bin
 
 iso:
 	make all
 	./makeiso.sh
-	rm -f *.o *.s minios.bin minios minios_shared minios_shared.bin
+	rm -f *.o *.s *.inc minios.bin minios minios_shared minios_shared.bin

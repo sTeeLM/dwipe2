@@ -18,6 +18,8 @@ struct options_t
     int check;
     /* 1: force chs mode, 0: try use lba mode */
     int force_chs;
+    /* 1: write a mbr, 0: do nothing */
+    int mbr;
 };
 
 extern struct options_t opt;
