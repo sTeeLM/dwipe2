@@ -2,11 +2,39 @@
 #include "defs.h"
 
 .code16
-.section ".bootsect", "ax", @progbits
-.globl _start
+.section ".mbr", "ax", @progbits
+.globl _boot
 _boot:
+	jmp start
+message:
+	.asciz "there", "are", "two", "tigers.\r\n"
+	.asciz "there", "are", "two", "tigers.\r\n"
+	.asciz "run", "run", "run.\r\n"
+	.asciz "run", "run", "run.\r\n"
+	.asciz "one", "of", "them", "has", "no", "eyes.\r\n"
+	.asciz "one", "of", "them", "has", "no", "ears.\r\n"
+	.asciz "how", "fucking", "weird!\r\n"
+	.asciz "how", "fucking", "weird!\r\n"
+	.asciz "+"
+freq: 
+	.word 262,294,330,262
+	.word 262,294,330,262
+	.word 330,349,392
+	.word 330,349,392
+	.word 392,440,392,349,330,262
+	.word 392,440,392,349,330,262
+	.word 294,196,262
+	.word 294,196,262
+	.word 0
 
-_start:
+delay: 
+	.byte 8,8,8,8,8,8,8,8,8,8
+	.byte 16,8,8,16
+	.byte 4,4,4,4,8,8
+	.byte 4,4,4,4,8,8
+	.byte 8,8,16
+	.byte 8,8,16
+start:
 	cli
 	movw	$BOOTSEG, %ax
 	movw	%ax, %ds
@@ -29,8 +57,11 @@ go:
 	movw	%ax, %ss		# put stack at INITSEG:0x4000-12.
 	movw	%dx, %sp
 
+	mov $' ', %al			# display one space
+	mov $0x1, %bx
+	mov $0xe, %ah 
+	int $0x10
 main:
-	
 	call load_string_table
 	call play_music
 	jmp  main
@@ -65,18 +96,19 @@ pp:
 	call print_str			# print word
 	popw %si
 
-	movw $0x12, %dx			# freq to counter of 8253
+	movw $0x12, %dx			# freq to counter of 8254
 	movw $0x34dc, %ax		# 1.19318MHz
 	divw %di
-	movw $0x42, %dx			# load counter to 8253
+	movw $0x42, %dx			# load counter to 8254
 	outb %al, %dx			# low bytes first
 	movb %ah, %al
 	outb %al, %dx			# hi bytes
 
-	movw %ds:(%bp), %bx             # get one delay into bx
+	movb %ds:(%bp), %bl             # get one delay value into bx
+	xorb %bh, %bh
 	call time_delay			# call delay sub proc
 	add $2, %si			# get next freq
-	add $2, %bp			# get next delay time
+	add $1, %bp			# get next delay time
 	add $2, %di			# get next message
 	jmp pp				# continue
  
@@ -100,7 +132,7 @@ time_delay:
 	outb %al, %dx
 2:
 	movw $0xffff, %ax
-	movw $0x40, %dx			# load counter to 8253
+	movw $0x40, %dx			# load counter to 8254
 	outb %al, %dx			# low bytes first
 	movb %ah, %al
 	outb %al, %dx			# hi bytes
@@ -129,7 +161,7 @@ load_string_table:
 	movw %si, (%di)
 1:
 	lodsb
-	cmp $'.', %al
+	cmp $'+', %al
 	jz 3f
 	cmp $0x0, %al
 	jnz 1b
@@ -146,43 +178,15 @@ char:
 	mov $0xe, %ah 
 	int $0x10
 print_str:
-	lodsb				#lodsb loads ds:esi into al
+	lodsb				# lodsb loads ds:esi into al
 	cmp $0x0, %al 
-	jnz char			#display character if not null
-	mov $' ', %al			#display space
+	jnz char			# display character if not null
+	mov $' ', %al			# display space
 	mov $0x1, %bx
 	mov $0xe, %ah 
 	int $0x10
 	ret
 
-message:
-	.asciz " there", "are", "2", "tigers\r\n"
-	.asciz "there", "are", "2", "tigers\r\n"
-	.asciz "run", "run", "run\r\n"
-	.asciz "run", "run", "run\r\n"
-	.asciz "one", "of", "them", "has", "no", "eyes\r\n"
-	.asciz "one", "of", "them", "has", "no", "ears\r\n"
-	.asciz "how", "fuck", "weird!\r\n"
-	.asciz "how", "fuck", "weird!\r\n"
-	.asciz "."
-freq: 
-	.word 262,294,330,262
-	.word 262,294,330,262
-	.word 330,349,392
-	.word 330,349,392
-	.word 392,440,392,349,330,262
-	.word 392,440,392,349,330,262
-	.word 294,196,262
-	.word 294,196,262
-	.word 0
-
-delay: 
-	.word 8,8,8,8,8,8,8,8,8,8
-	.word 16,8,8,16
-	.word 4,4,4,4,8,8
-	.word 4,4,4,4,8,8
-	.word 8,8,16
-	.word 8,8,16
 .org 510
 .word 0xAA55
 msg_table:
