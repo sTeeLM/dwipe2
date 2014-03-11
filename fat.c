@@ -117,7 +117,7 @@ int contain_fat_label(struct disk_param * param, const char * str)
     struct mbr_entry mbr[4];
     struct fat_boot_sector_32 * fat_ebr_32;
     struct fat_boot_sector_16 * fat_ebr_16;
-    int c, h, s, i;
+    int c, h, s, i, j;
     char label[FAT_LABEL_LEN + 1];
 
     ret = read_sectors_chs(param, 0, 0, 1, 1, buffer, &len);
@@ -153,6 +153,10 @@ int contain_fat_label(struct disk_param * param, const char * str)
                 len = sizeof(fat_ebr_32->label); 
             memcpy(label, fat_ebr_32->label, sizeof(fat_ebr_32->label));
             label[sizeof(label) - 1] = 0;
+            for(j = 0 ; j < sizeof(label); j++) {
+                if(label[j] == ' ')
+                    label[j] = 0;
+            }
             SDBG("FIND FAT32 LABEL '%s'", label);
             if(strcmp(opt.skip, label) == 0) {
                 return 1;
@@ -163,6 +167,10 @@ int contain_fat_label(struct disk_param * param, const char * str)
                 len = sizeof(fat_ebr_16->label); 
             memcpy(label, fat_ebr_16->label, sizeof(fat_ebr_16->label));
             label[sizeof(label) - 1] = 0;
+            for(j = 0 ; j < sizeof(label); j++) {
+                if(label[j] == ' ')
+                    label[j] = 0;
+            }
             SDBG("FIND FAT16 LABEL '%s'", label);
             if(strcmp(opt.skip, label) == 0) {
                 return 1;

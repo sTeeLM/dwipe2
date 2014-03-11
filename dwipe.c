@@ -22,8 +22,8 @@
 
 #define LINE_CPU	2
 #define LINE_MODE	4
-#define LINE_DISK_LIST 6
-#define LINE_WIPE_STATUS 8
+#define LINE_DISK_LIST 8
+#define LINE_WIPE_STATUS 10
 #define LINE_PROGRESS (LINE_WIPE_STATUS + 6)
 
 struct disk_param disk_list[128];
@@ -89,9 +89,9 @@ static void show_cpu(const char * cpu, int l1, int l2, int l3, uint32_t speed_kh
 static void show_mode(void)
 {
     char buffer[1024];
-    snprintf(buffer, sizeof(buffer), "| Skip: %s | Testmode %s | Debug [%c%c%c%c] | Check: %s | Force CHS: %s |",
+    snprintf(buffer, sizeof(buffer), "| Skip: %s | Test %s | Debug [%c%c%c%c] | Check: %s | Force CHS: %s |",
         opt.skip,
-        opt.testmode ? "ON" : "OFF",
+        opt.test ? "ON" : "OFF",
         opt.debug & MINIOS_LOG_ERR ? 'E': '-',
         opt.debug & MINIOS_LOG_WARN ? 'W': '-',
         opt.debug & MINIOS_LOG_INFO ? 'I': '-',
@@ -101,6 +101,13 @@ static void show_mode(void)
         );
     cprint(LINE_MODE, 0, buffer);
     show_sepator(LINE_MODE + 1);
+
+    snprintf(buffer, sizeof(buffer), "| Write Funny MBR: %s | Wiping Mode: %s |",
+        opt.mbr ? "ON" : "OFF",
+        opt.mode == WIPE_MODE_FAST? "FAST": (opt.mode == WIPE_MODE_DOD? "DOD":"OCD")
+        );
+    cprint(LINE_MODE + 2, 0, buffer);
+    show_sepator(LINE_MODE + 3);
 }
 
 static void show_disk_list(uint32_t total, uint32_t error, uint32_t skiped, uint32_t wiped)
@@ -271,12 +278,23 @@ static void update_progress(struct progress_t * progress, uint64_t write_bytes)
     SDBG("eta is %d:%d:%d", eta_hour, eta_min,eta_sec);
 }
 
+static void fill_rand(char * buffer, size_t buffer_size)
+{
+    size_t i;
+
+    for(i = 0 ; i < buffer_size ; i++) {
+        buffer[i] = rand();
+    }
+}
+
 static int wipe_sectors_lba(struct disk_param * param, uint64_t offset, uint32_t nsectors, char * buffer, uint32_t * size)
 {
-    int ret, c, h, s;
+    int ret = -1, c, h, s;
+    int pass, i;
+    int old_size = *size;
 
     if(param->has_ext) {
-        if(opt.testmode) {
+        if(opt.test) {
             ret = read_sectors_lba(param, offset, nsectors, buffer, size);
             if(ret != 0) {
                 SERR("read_sectors_lba error %d, id = %x nsectors = %d, size = %d", 
@@ -287,30 +305,75 @@ static int wipe_sectors_lba(struct disk_param * param, uint64_t offset, uint32_t
                 SERR("read_sectors_lba error %d, id = %x offset = %"PRIu64, offset);
             } 
         } else {
-            ret = write_sectors_lba(param, offset, nsectors, buffer, size, opt.check);
-            if(ret != 0) {
-                SERR("write_sectors_lba error %d, id = %x nsectors = %d, size = %d", 
-                    ret, 
-                    param->disk_id,
-                    nsectors,
-                    *size);
-                SERR("write_sectors_lba error %d, id = %x offset = %"PRIu64, offset);
-            } 
+            if(opt.mode == WIPE_MODE_FAST) {
+                memset(buffer, 0, old_size);
+                ret = write_sectors_lba(param, offset, nsectors, buffer, size, opt.check);
+                if(ret != 0) {
+                    SERR("write_sectors_lba error %d, id = %x nsectors = %d, size = %d", 
+                        ret, 
+                        param->disk_id,
+                        nsectors,
+                        *size);
+                    SERR("write_sectors_lba error %d, id = %x offset = %"PRIu64, offset);
+                } 
+            } else if(opt.mode == WIPE_MODE_DOD || opt.mode == WIPE_MODE_OCD) {
+                pass = (opt.mode == WIPE_MODE_DOD) ? 3 : 4;
+                for(i = 0 ; i < pass ; i ++) {
+                    if(opt.mode == WIPE_MODE_DOD && (i % 2 == 0) ) {
+                        memset(buffer, 0, old_size);
+                    } else if(opt.mode == WIPE_MODE_DOD){
+                        memset(buffer, 0xFF, old_size);
+                    } else {
+                        fill_rand(buffer, old_size);
+                    }
+                    *size = old_size;
+                    ret = write_sectors_lba(param, offset, nsectors, buffer, size, opt.check || opt.mode == WIPE_MODE_OCD);
+                    if(ret != 0) {
+                        SERR("write_sectors_lba error %d, id = %x nsectors = %d, size = %d", 
+                            ret, 
+                            param->disk_id,
+                            nsectors,
+                            *size);
+                        SERR("write_sectors_lba error %d, id = %x offset = %"PRIu64, offset);
+                    } 
+                }
+            }
         }        
     } else {
         ret = lba2chs(param, offset, &c, &h, &s);
         if(ret == 0) {
-            if(opt.testmode) {
+            if(opt.test) {
                 ret = read_sectors_chs(param, c, h, s, nsectors, buffer, size);
                 if(ret != 0) {
                     SERR("read_sectors_chs error %d, id = %x, CHS=%d/%d/%d nsectors = %d, size = %d", 
                         ret, c, h, s, nsectors, *size);
                 }
             } else {
-                ret = write_sectors_chs(param, c, h, s, nsectors, buffer, size, opt.check);
-                if(ret != 0) {
-                    SERR("read_sectors_chs error %d, id = %x, CHS=%d/%d/%d nsectors = %d, size = %d", 
-                        ret, c, h, s, nsectors, *size);
+                if(opt.mode == WIPE_MODE_FAST) {
+                    ret = write_sectors_chs(param, c, h, s, nsectors, buffer, size, opt.check);
+                    if(ret != 0) {
+                        SERR("read_sectors_chs error %d, id = %x, CHS=%d/%d/%d nsectors = %d, size = %d", 
+                            ret, c, h, s, nsectors, *size);
+                    }
+                } else if(opt.mode == WIPE_MODE_DOD || opt.mode == WIPE_MODE_OCD) {
+                    pass = (opt.mode == WIPE_MODE_DOD) ? 3 : 4;
+                    for(i = 0 ; i < pass ; i ++) {
+                        if(opt.mode == WIPE_MODE_DOD && (i % 2 == 0) ) {
+                            memset(buffer, 0, old_size);
+                        } else if(opt.mode == WIPE_MODE_DOD){
+                            memset(buffer, 0xFF, old_size);
+                        } else {
+                            fill_rand(buffer, old_size);
+                        }
+                        *size = old_size;
+                        ret = write_sectors_chs(param, c, h, s, nsectors, buffer, size, opt.check || opt.mode == WIPE_MODE_OCD);
+                        if(ret != 0) {
+                            if(ret != 0) {
+                                SERR("read_sectors_chs error %d, id = %x, CHS=%d/%d/%d nsectors = %d, size = %d", 
+                                    ret, c, h, s, nsectors, *size);
+                            }
+                        } 
+                    }
                 }
             } 
         } else {
@@ -387,10 +450,10 @@ static int wipe_disk(struct disk_param * param)
     update_progress(&progress, left_sec * sector_size);
     SINF("wipe %x done", param->disk_id);
 
-    if(opt.mbr && !opt.testmode) {
+    if(opt.mbr && !opt.test) {
         memcpy(buffer, mbr_bin, mbr_bin_len);
         size = mbr_bin_len;
-        ret =  wipe_sectors_lba(param, 0, 1, buffer, &size); 
+        ret =  write_sectors_chs(param, 0, 0, 1, 1, buffer, &size, opt.check); 
         if(ret < 0) {
             goto fail;
         }
@@ -431,7 +494,7 @@ void enum_disk(void)
                 SERR("check_extensions_present on %x ok, but not support ext, ext = %x, version = %x", i, ext, version);
             }
         } else {
-            //SERR("get_disk_param on %x fail %d", i, ret);
+            SERR("get_disk_param on %x fail %d", i, ret);
         }
         param = &disk_list[index];
     }
@@ -446,6 +509,7 @@ void do_main()
 {
     int i;
     int ret;
+    struct timeval cur;
 
     /* Kill Floppy Motor */
 	outb(0x8, 0x3f2); 
@@ -469,6 +533,9 @@ void do_main()
     
 	/* Setup the display */
 	display_init();
+
+    gettimeofday(&cur, NULL);
+    srand(cur.tv_sec);
 
     show_header();
     show_cpu(cpu_type_str, l1_cache, l2_cache, l3_cache, speed);

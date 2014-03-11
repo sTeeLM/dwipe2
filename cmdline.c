@@ -87,8 +87,8 @@ int parse_cmdline()
     fprintf(stderr, "before parse options\r\n");
     dmp_opt();
     
-    if(is_cmd_exist("testmode")) {
-        opt.testmode = 1;
+    if(is_cmd_exist("test")) {
+        opt.test = 1;
     }
 
     if(is_cmd_exist("check")) {
@@ -107,6 +107,18 @@ int parse_cmdline()
         opt.debug = atoi(get_cmd_item("debug"));
         if(opt.debug < 0) opt.debug = 0;
         if(opt.debug > 0xf) opt.debug = 0xf;
+    }
+
+    if(is_cmd_exist("mode") && get_cmd_item("mode") != NULL) {
+        if(!stricmp(get_cmd_item("mode"), "FAST")) {
+            opt.mode = WIPE_MODE_FAST;
+        } else if(!stricmp(get_cmd_item("mode"), "DOD")) {
+            opt.mode = WIPE_MODE_DOD;
+        } else {
+            opt.mode = WIPE_MODE_OCD;
+        }
+        if(opt.mode < WIPE_MODE_FAST) opt.mode = WIPE_MODE_FAST;
+        if(opt.mode > WIPE_MODE_OCD) opt.mode = WIPE_MODE_OCD;
     }
 
     if(is_cmd_exist("skip") && get_cmd_item("skip") != NULL) {
