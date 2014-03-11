@@ -87,8 +87,9 @@ play_music:
 	movb $0xb6, %al			# channel 2(speaker), lobyte/hibyte, square wave, 16bits
 	outb %al, %dx
 pp:
-	movw (%si),%ax			# get one freq to di
-	cmp $0, %ax			# is end ?
+
+	movw (%si),%bx			# get one freq to di
+	cmp $0, %bx			# is end ?
 	je end_play			# if so, end play
 
 	pushw %si
@@ -96,9 +97,10 @@ pp:
 	call print_str			# print word
 	popw %si
 
+	movw (%si),%bx
 	movw $0x12, %dx			# freq to counter of 8254
 	movw $0x34dc, %ax		# 1.19318MHz
-	divw %di
+	divw %bx
 	movw $0x42, %dx			# load counter to 8254
 	outb %al, %dx			# low bytes first
 	movb %ah, %al

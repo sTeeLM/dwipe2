@@ -48,7 +48,7 @@ int parse_cmdline()
     int i, is_val, index = 0;
     char * str1, *str2, *saveptr1, *saveptr2, *token, *subtoken;
 
-    fprintf(stderr, "==================welcom to minios!=================\r\n", cmd_line_ptr);
+    fprintf(stderr, "==================welcom to minios!=================\r\n");
 
     fprintf(stderr, "cmd is %s\r\n", cmd_line_ptr);
     strncpy(cmd_line, cmd_line_ptr, sizeof(cmd_line));
