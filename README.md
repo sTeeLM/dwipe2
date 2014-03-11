@@ -4,7 +4,8 @@ dwipe2
 dwipe2 base on mini kernel（minios）
 
 exsample syslinux.cfg:
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 default dwipe
 implicit 1
 prompt   1
