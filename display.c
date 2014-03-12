@@ -294,6 +294,29 @@ void hprint2(int y,int x, unsigned long val, int digits)
         buf[idx] = 0;
         cprint(y,x,buf + (idx - digits));
 }
+/*
+ *  * Print a people friendly address
+ *   */
+void aprint(int y, int x, uint32_t page)
+{
+        /* page is in multiples of 4K */
+        if ((page << 2) < 9999) {
+                dprint(y, x, page << 2, 4, 0);
+                cprint(y, x+4, "K");
+        }
+        else if ((page >>8) < 9999) {
+                dprint(y, x, (page  + (1 << 7)) >> 8, 4, 0);
+                cprint(y, x+4, "M");
+        }
+        else if ((page >>18) < 9999) {
+                dprint(y, x, (page + (1 << 17)) >> 18, 4, 0);
+                cprint(y, x+4, "G");
+        }
+        else {
+                dprint(y, x, (page + (1 << 27)) >> 28, 4, 0);
+                cprint(y, x+4, "T");
+        }
+}
 
 int get_key() 
 {

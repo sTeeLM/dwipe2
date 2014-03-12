@@ -10,7 +10,6 @@ void hprint(int y, int x, unsigned long val);
 void hprint2(int y,int x, unsigned long val, int digits);
 void aprint(int y, int x, uint32_t page);
 void display_init(void);
-
 #define RES_START	0xa0000
 #define RES_END		0x100000
 #define SCREEN_ADR	0xb8000

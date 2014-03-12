@@ -11,7 +11,7 @@ LDFLAGS= -L newlib-output/i386-elf/lib
 
 LIBS= -lc -lm -lminios
 
-OBJS= head.o int13.o dwipe.o inter.o lib.o display.o disk.o test.o serial.o cmdline.o debug.o timer.o option.o fat.o
+OBJS= head.o int13.o dwipe.o inter.o lib.o display.o disk.o serial.o cmdline.o debug.o timer.o option.o fat.o
 
 all: minios.bin minios
 
