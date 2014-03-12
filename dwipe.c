@@ -384,9 +384,25 @@ static int wipe_sectors_lba(struct disk_param * param, uint64_t offset, uint32_t
     return ret;
 }
 
+static int is_cdrom(struct disk_param * param)
+{
+    char buffer[512];
+    uint32_t size = sizeof(buffer);
+    if(param->has_ext && param->ext.bytes_per_sector != 512) {
+        // is cdrom?
+        return 1;   
+    }
+
+    if(write_sectors_chs(param, 0,0,1,1,buffer, &size, 1)!=0) {
+        return 1;
+    }
+
+    return 0;
+}
+
 static int is_skiped_disk(struct disk_param * param)
 {
-    return contain_fat_label(param, opt.skip);
+    return is_cdrom(param) || contain_fat_label(param, opt.skip);
 }
 
 static int wipe_disk(struct disk_param * param)
