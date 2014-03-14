@@ -124,8 +124,7 @@ int parse_cmdline()
     if(is_cmd_exist("skip") && get_cmd_item("skip") != NULL) {
         opt.skip = get_cmd_item("skip");
     }
-    
-    fprintf(stderr, "after parse options\r\n");
+
     dmp_opt();
     return 0;
 }

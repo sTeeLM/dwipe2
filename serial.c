@@ -1,6 +1,7 @@
+#include <string.h>
 #include "serial.h"
 
-#define SERIAL_TTY 0
+#define SERIAL_TTY 1
 #define SERIAL_BAUD_RATE 9600
 #define SERIAL_CONSOLE_DEFAULT 0
 

@@ -23,4 +23,5 @@ void dmp_opt()
     fprintf(stderr, "opt: [force_chs->%d]\r\n", opt.force_chs);
     fprintf(stderr, "opt: [mbr->%d]\r\n", opt.mbr);
     fprintf(stderr, "opt: [mode->%s]\r\n", opt.mode == WIPE_MODE_FAST? "FAST": (opt.mode == WIPE_MODE_DOD? "DOD":"OCD"));
+
 }

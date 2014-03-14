@@ -108,6 +108,33 @@ struct mbr_entry
 
 }__attribute__ ((packed));
 
+static void dump_mbr(unsigned char * buffer)
+{
+    int i = 0;
+
+    SDBG("mbr sector is ");
+    for(i = 0; i < 512; i += 16) {
+        SDBG("%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+            buffer[i], 
+            buffer[i + 1],
+            buffer[i + 2],
+            buffer[i + 3],
+            buffer[i + 4], 
+            buffer[i + 5],
+            buffer[i + 6],
+            buffer[i + 7],
+            buffer[i + 8],
+            buffer[i + 9],
+            buffer[i + 10],
+            buffer[i + 11], 
+            buffer[i + 12],
+            buffer[i + 13],
+            buffer[i + 14],
+            buffer[i + 15]
+            );
+    }
+}
+
 int contain_fat_label(struct disk_param * param, const char * str)
 {
     /* read mbr */
@@ -126,6 +153,8 @@ int contain_fat_label(struct disk_param * param, const char * str)
         return 0;
     }
     memcpy(mbr, buffer + 446, sizeof(mbr));
+
+    dump_mbr((unsigned char *)buffer);
     
     for(i = 0 ; i < 4 ; i ++) {
         SDBG("mbr entry %d type %x", i, mbr[i].type);
@@ -135,7 +164,7 @@ int contain_fat_label(struct disk_param * param, const char * str)
             len = sizeof(buffer);
             ret = read_sectors_chs(param, c, h, s, 1, &buffer, &len);
             SDBG("read_sectors_chs ret %d", ret);
-        } else if((mbr[i].type == 0xC)) {
+        } else if((mbr[i].type == 0xC || mbr[i].type == 0xE)) {
             SDBG("lba_begin is %d", mbr[i].lba_begin);
             len = sizeof(buffer);
             ret = read_sectors_lba(param, mbr[i].lba_begin, 1, &buffer, &len);

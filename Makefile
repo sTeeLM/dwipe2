@@ -61,4 +61,3 @@ clean:
 iso:
 	make all
 	./makeiso.sh
-	rm -f *.o *.s *.inc minios.bin minios minios_shared minios_shared.bin

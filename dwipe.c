@@ -179,6 +179,7 @@ struct progress_t
     uint64_t done_bytes;
     struct timeval tv_start;
     int saved_pro_width;
+    int reset;
 };
 
 static void reset_progress(struct progress_t * progress, uint64_t total_bytes)
@@ -189,6 +190,7 @@ static void reset_progress(struct progress_t * progress, uint64_t total_bytes)
     if(!progress->total_bytes)
         progress->total_bytes = 1;
     progress->saved_pro_width = 0;
+    progress->reset = 0;
 }
 
 /*
@@ -220,9 +222,10 @@ static void update_progress(struct progress_t * progress, uint64_t write_bytes)
 
     pro_width = (progress->done_bytes) * line_width / progress->total_bytes;
 
-    if(progress->saved_pro_width == pro_width) {
+    if(progress->saved_pro_width == pro_width && progress->reset) {
         return; /* don't update display too much times : blink! */
     }
+    progress->reset = 1;
 
     progress->saved_pro_width = pro_width;
 
@@ -386,15 +389,9 @@ static int wipe_sectors_lba(struct disk_param * param, uint64_t offset, uint32_t
 
 static int is_cdrom(struct disk_param * param)
 {
-    char buffer[512];
-    uint32_t size = sizeof(buffer);
     if(param->has_ext && param->ext.bytes_per_sector != 512) {
         // is cdrom?
         return 1;   
-    }
-
-    if(write_sectors_chs(param, 0,0,1,1,buffer, &size, 1)!=0) {
-        return 1;
     }
 
     return 0;
@@ -439,6 +436,7 @@ static int wipe_disk(struct disk_param * param)
     total_size = total_sec * sector_size;
 
     reset_progress(&progress, total_size);
+    update_progress(&progress, 0);
 
     for(i = 0 ; i < total_size / WIPE_BUFFER_SIZE; i ++) {
         size = WIPE_BUFFER_SIZE;
