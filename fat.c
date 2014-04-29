@@ -169,7 +169,19 @@ int contain_fat_label(struct disk_param * param, const char * str)
             len = sizeof(buffer);
             ret = read_sectors_lba(param, mbr[i].lba_begin, 1, &buffer, &len);
             SDBG("read_sectors_lba ret %d", ret);
-        } else {
+        } else if((mbr[i].type == 0xEF)) {
+           // try chs first
+           get_chs_from_pack(mbr[i].chs_begin_cylinder_sector, &c, &s);
+           h = mbr[i].chs_begin_head;
+           len = sizeof(buffer);
+           ret = read_sectors_chs(param, c, h, s, 1, &buffer, &len);
+           SDBG("read_sectors_chs ret %d", ret);
+           if(ret != 0) { // try LBA
+               len = sizeof(buffer);
+               ret = read_sectors_lba(param, mbr[i].lba_begin, 1, &buffer, &len);
+               SDBG("read_sectors_lba ret %d", ret);
+           }
+	} else {
             continue;
         }
       
